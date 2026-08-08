@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCILINE Mascot Engine - Open Source</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            overflow-x: hidden;
+        }
+        
+        /* Mascot required CSS */
+        .ascii-mascot-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: grab;
+            z-index: 9999;
+            user-select: none;
+            will-change: transform;
+            
+            /* Mascot wrapper styling */
+            outline: none;
+            background: transparent;
+        }
+        .ascii-mascot-wrapper:active {
+            cursor: grabbing;
+        }
+        .ascii-mascot-pre {
+            margin: 0;
+            font-family: monospace;
+            font-size: 8px;
+            line-height: 8px;
+            white-space: pre;
+            pointer-events: none;
+            letter-spacing: 0px;
+        }
+        .colored-mascot-pre span {
+            /* inline-block was distorting character width */
+            letter-spacing: 0px;
+        }
+        
+        /* Demo Page Styles */
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            text-align: center;
+        }
+        .hero {
+            padding: 40px;
+            background: #2a2a2a;
+            border-radius: 12px;
+            border: 2px solid #444;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #4CAF50;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: scale(1.05);
+            background: #45a049;
+        }
+        .platform {
+            margin: 40px auto;
+            padding: 20px;
+            background: #333;
+            width: 60%;
+            border-radius: 8px;
+        }
+
+        /* Mascot drag hint text */
+        .mascot-drag-hint {
+            position: absolute;
+            top: -25px; /* Above the mascot */
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            font-family: "Courier New", monospace;
+            font-weight: bold;
+            color: #ffd700;
+            background: rgba(0,0,0,0.7);
+            padding: 3px 6px;
+            border-radius: 5px;
+            pointer-events: none;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .ascii-mascot-wrapper.show-hint .mascot-drag-hint {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="hero">
+            <h1>ASCILINE Mascot Engine</h1>
+            <p>A lightweight, interactive ASCII mascot engine for the web.</p>
+            <p>Click the button below to spawn a mascot. Try dragging and throwing it!</p>
+            <br>
+            <button onclick="spawnCat()">Spawn Cat</button>
+        </div>
+        
+        <!-- Mascots will collide with this because of the platformSelectors in mascot.js -->
+        <h2 class="platform">Mascots will land on me!</h2>
+        <p class="platform" style="width:40%">And on me too!</p>
+    </div>
+
+    <!-- Core Engine Scripts -->
+    <script src="../lib/mascot.js?v=11"></script>
+    <script src="../lib/sprite.js?v=11"></script>
+    <script src="../lib/walking_sprite.js?v=11"></script>
+    <script src="../lib/static_mascot.js?v=11"></script>
+    
+    <!-- Load mascot data directly via JS (Avoids CORS/fetch errors for local file:// usage) -->
+    <script src="assets/secondcat_data.js?v=11"></script>
+    
+    <script>
+        // Custom configuration (Optional)
+        window.ASCILINE_CONFIG = {
+            platformSelectors: 'h1, h2, h3, h4, h5, h6, p, button, .platform'
+        };
+
+        function spawnCat() {
+            // 1. Create a new walking mascot instance, passing the raw data object directly
+            const cat = new WalkingSpriteMascot(window.SECOND_CAT_DATA, 80, 50, 15);
+            
+            // 2. Add it to the ASCILINE engine so it gets physics updates
+            ASCILINE.getMascots().push(cat);
+        }
+    </script>
+</body>
+</html>

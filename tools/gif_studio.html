@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ASCILINE Mascot Studio</title>
+    <script>
+    // --- OMGGIF LIBRARY EMBEDDED ---
+    // (c) Dean McNamee <dean@gmail.com>, 2013.
+    // https://github.com/deanm/omggif
+    // (c) Dean McNamee <dean@gmail.com>, 2013.
+//
+// https://github.com/deanm/omggif
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to
+// deal in the Software without restriction, including without limitation the
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+// sell copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
+//
+// omggif is a JavaScript implementation of a GIF 89a encoder and decoder,
+// including animation and compression.  It does not rely on any specific
+// underlying system, so should run in the browser, Node, or Plask.
+
+"use strict";
+
+function GifWriter(buf, width, height, gopts) {
+  var p = 0;
+
+  var gopts = gopts === undefined ? { } : gopts;
+  var loop_count = gopts.loop === undefined ? null : gopts.loop;
+  var global_palette = gopts.palette === undefined ? null : gopts.palette;
+
+  if (width <= 0 || height <= 0 || width > 65535 || height > 65535)
+    throw new Error("Width/Height invalid.");
+
+  function check_palette_and_num_colors(palette) {
+    var num_colors = palette.length;
+    if (num_colors < 2 || num_colors > 256 ||  num_colors & (num_colors-1)) {
+      throw new Error(
+          "Invalid code/color length, must be power of 2 and 2 .. 256.");
+    }
+    return num_colors;
+  }
+
+  // - Header.
+  buf[p++] = 0x47; buf[p++] = 0x49; buf[p++] = 0x46;  // GIF
+  buf[p++] = 0x38; buf[p++] = 0x39; buf[p++] = 0x61;  // 89a
+
+  // Handling of Global Color Table (palette) and background index.
+  var gp_num_colors_pow2 = 0;
+  var background = 0;
+  if (global_palette !== null) {
+    var gp_num_colors = check_palette_and_num_colors(global_palette);
+    while (gp_num_colors >>= 1) ++gp_num_colors_pow2;
+    gp_num_colors = 1 << gp_num_colors_pow2;
+    --gp_num_colors_pow2;
+    if (gopts.background !== undefined) {
+      background = gopts.background;
+      if (background >= gp_num_colors)
+        throw new Error("Background index out of range.");
+      // The GIF spec states that a background index of 0 should be ignored, so
+      // this is probably a mistake and you really want to set it to another
+      // slot in the palette.  But actually in the end most browsers, etc end
+      // up ignoring this almost completely (including for dispose background).
+      if (background === 0)
+        throw new Error("Background index explicitly passed as 0.");
+    }
+  }
+
+  // - Logical Screen Descriptor.
+  // NOTE(deanm): w/h apparently ignored by implementations, but set anyway.
+  buf[p++] = width & 0xff; buf[p++] = width >> 8 & 0xff;
+  buf[p++] = height & 0xff; buf[p++] = height >> 8 & 0xff;
+  // NOTE: Indicates 0-bpp original color resolution (unused?).
+  buf[p++] = (global_palette !== null ? 0x80 : 0) |  // Global Color Table Flag.
+             gp_num_colors_pow2;  // NOTE: No sort flag (unused?).
+  buf[p++] = background;  // Background Color Index.
+  buf[p++] = 0;  // Pixel aspect ratio (unused?).
+
+  // - Global Color Table
+  if (global_palette !== null) {
+    for (var i = 0, il = global_palette.length; i < il; ++i) {
+      var rgb = global_palette[i];
+      buf[p++] = rgb >> 16 & 0xff;
+      buf[p++] = rgb >> 8 & 0xff;
+      buf[p++] = rgb & 0xff;
+    }
+  }
+
+  if (loop_count !== null) {  // Netscape block for looping.
+    if (loop_count < 0 || loop_count > 65535)
+      throw new Error("Loop count invalid.")
+    // Extension code, label, and length.
+    buf[p++] = 0x21; buf[p++] = 0xff; buf[p++] = 0x0b;
+    // NETSCAPE2.0
+    buf[p++] = 0x4e; buf[p++] = 0x45; buf[p++] = 0x54; buf[p++] = 0x53;
+    buf[p++] = 0x43; buf[p++] = 0x41; buf[p++] = 0x50; buf[p++] = 0x45;
+    buf[p++] = 0x32; buf[p++] = 0x2e; buf[p++] = 0x30;
+    // Sub-block
+    buf[p++] = 0x03; buf[p++] = 0x01;
+    buf[p++] = loop_count & 0xff; buf[p++] = loop_count >> 8 & 0xff;
+    buf[p++] = 0x00;  // Terminator.
+  }
+
+
+  var ended = false;
+
+  this.addFrame = function(x, y, w, h, indexed_pixels, opts) {
+    if (ended === true) { --p; ended = false; }  // Un-end.
+
+    opts = opts === undefined ? { } : opts;
+
+    // TODO(deanm): Bounds check x, y.  Do they need to be within the virtual
+    // canvas width/height, I imagine?
+    if (x < 0 || y < 0 || x > 65535 || y > 65535)
+      throw new Error("x/y invalid.")
+
+    if (w <= 0 || h <= 0 || w > 65535 || h > 65535)
+      throw new Error("Width/Height invalid.")
+
+    if (indexed_pixels.length < w * h)
+      throw new Error("Not enough pixels for the frame size.");
+
+    var using_local_palette = true;
+    var palette = opts.palette;
+    if (palette === undefined || palette === null) {
+      using_local_palette = false;
+      palette = global_palette;
+    }
+
+    if (palette === undefined || palette === null)
+      throw new Error("Must supply either a local or global palette.");
+
+    var num_colors = check_palette_and_num_colors(palette);
+
+    // Compute the min_code_size (power of 2), destroying num_colors.
+    var min_code_size = 0;
+    while (num_colors >>= 1) ++min_code_size;
+    num_colors = 1 << min_code_size;  // Now we can easily get it back.
+
+    var delay = opts.delay === undefined ? 0 : opts.delay;
+
+    // From the spec:
+    //     0 -   No disposal specified. The decoder is
+    //           not required to take any action.
+    //     1 -   Do not dispose. The graphic is to be left
+    //           in place.
+    //     2 -   Restore to background color. The area used by the
+    //           graphic must be restored to the background color.
+    //     3 -   Restore to previous. The decoder is required to
+    //           restore the area overwritten by the graphic with
+    //           what was there prior to rendering the graphic.
+    //  4-7 -    To be defined.
+    // NOTE(deanm): Dispose background doesn't really work, apparently most
+    // browsers ignore the background palette index and clear to transparency.
+    var disposal = opts.disposal === undefined ? 0 : opts.disposal;
+    if (disposal < 0 || disposal > 3)  // 4-7 is reserved.
+      throw new Error("Disposal out of range.");
+
+    var use_transparency = false;
+    var transparent_index = 0;
+    if (opts.transparent !== undefined && opts.transparent !== null) {
+      use_transparency = true;
+      transparent_index = opts.transparent;
+      if (transparent_index < 0 || transparent_index >= num_colors)
+        throw new Error("Transparent color index.");
+    }
+
+    if (disposal !== 0 || use_transparency || delay !== 0) {
+      // - Graphics Control Extension
+      buf[p++] = 0x21; buf[p++] = 0xf9;  // Extension / Label.
+      buf[p++] = 4;  // Byte size.
+
+      buf[p++] = disposal << 2 | (use_transparency === true ? 1 : 0);
+      buf[p++] = delay & 0xff; buf[p++] = delay >> 8 & 0xff;
+      buf[p++] = transparent_index;  // Transparent color index.
+      buf[p++] = 0;  // Block Terminator.
+    }
+
+    // - Image Descriptor
+    buf[p++] = 0x2c;  // Image Seperator.
+    buf[p++] = x & 0xff; buf[p++] = x >> 8 & 0xff;  // Left.
+    buf[p++] = y & 0xff; buf[p++] = y >> 8 & 0xff;  // Top.
+    buf[p++] = w & 0xff; buf[p++] = w >> 8 & 0xff;
+    buf[p++] = h & 0xff; buf[p++] = h >> 8 & 0xff;
+    // NOTE: No sort flag (unused?).
+    // TODO(deanm): Support interlace.
+    buf[p++] = using_local_palette === true ? (0x80 | (min_code_size-1)) : 0;
+
+    // - Local Color Table
+    if (using_local_palette === true) {
+      for (var i = 0, il = palette.length; i < il; ++i) {
+        var rgb = palette[i];
+        buf[p++] = rgb >> 16 & 0xff;
+        buf[p++] = rgb >> 8 & 0xff;
+        buf[p++] = rgb & 0xff;
+      }
+    }
+
+    p = GifWriterOutputLZWCodeStream(
+            buf, p, min_code_size < 2 ? 2 : min_code_size, indexed_pixels);
+
+    return p;
+  };
+
+  this.end = function() {
+    if (ended === false) {
+      buf[p++] = 0x3b;  // Trailer.
+      ended = true;
+    }
+    return p;
+  };
+
+  this.getOutputBuffer = function() { return buf; };
+  this.setOutputBuffer = function(v) { buf = v; };
+  this.getOutputBufferPosition = function() { return p; };
+  this.setOutputBufferPosition = function(v) { p = v; };
+}
+
+// Main compression routine, palette indexes -> LZW code stream.
+// |index_stream| must have at least one entry.
+function GifWriterOutputLZWCodeStream(buf, p, min_code_size, index_stream) {
+  buf[p++] = min_code_size;
+  var cur_subblock = p++;  // Pointing at the length field.
+
+  var clear_code = 1 << min_code_size;
+  var code_mask = clear_code - 1;
+  var eoi_code = clear_code + 1;
+  var next_code = eoi_code + 1;
+
+  var cur_code_size = min_code_size + 1;  // Number of bits per code.
+  var cur_shift = 0;
+  // We have at most 12-bit codes, so we should have to hold a max of 19
+  // bits here (and then we would write out).
+  var cur = 0;
+
+  function emit_bytes_to_buffer(bit_block_size) {
+    while (cur_shift >= bit_block_size) {
+      buf[p++] = cur & 0xff;
+      cur >>= 8; cur_shift -= 8;
+      if (p === cur_subblock + 256) {  // Finished a subblock.
+        buf[cur_subblock] = 255;
+        cur_subblock = p++;
+      }
+    }
+  }
+
+  function emit_code(c) {
+    cur |= c << cur_shift;
+    cur_shift += cur_code_size;
+    emit_bytes_to_buffer(8);
+  }
+
+  // I am not an expert on the topic, and I don't want to write a thesis.
+  // However, it is good to outline here the basic algorithm and the few data
+  // structures and optimizations here that make this implementation fast.
+  // The basic idea behind LZW is to build a table of previously seen runs
+  // addressed by a short id (herein called output code).  All data is
+  // referenced by a code, which represents one or more values from the
+  // original input stream.  All input bytes can be referenced as the same
+  // value as an output code.  So if you didn't want any compression, you
+  // could more or less just output the original bytes as codes (there are
+  // some details to this, but it is the idea).  In order to achieve
+  // compression, values greater then the input range (codes can be up to
+  // 12-bit while input only 8-bit) represent a sequence of previously seen
+  // inputs.  The decompressor is able to build the same mapping while
+  // decoding, so there is always a shared common knowledge between the
+  // encoding and decoder, which is also important for "timing" aspects like
+  // how to handle variable bit width code encoding.
+  //
+  // One obvious but very important consequence of the table system is there
+  // is always a unique id (at most 12-bits) to map the runs.  'A' might be
+  // 4, then 'AA' might be 10, 'AAA' 11, 'AAAA' 12, etc.  This relationship
+  // can be used for an effecient lookup strategy for the code mapping.  We
+  // need to know if a run has been seen before, and be able to map that run
+  // to the output code.  Since we start with known unique ids (input bytes),
+  // and then from those build more unique ids (table entries), we can
+  // continue this chain (almost like a linked list) to always have small
+  // integer values that represent the current byte chains in the encoder.
+  // This means instead of tracking the input bytes (AAAABCD) to know our
+  // current state, we can track the table entry for AAAABC (it is guaranteed
+  // to exist by the nature of the algorithm) and the next character D.
+  // Therefor the tuple of (table_entry, byte) is guaranteed to also be
+  // unique.  This allows us to create a simple lookup key for mapping input
+  // sequences to codes (table indices) without having to store or search
+  // any of the code sequences.  So if 'AAAA' has a table entry of 12, the
+  // tuple of ('AAAA', K) for any input byte K will be unique, and can be our
+  // key.  This leads to a integer value at most 20-bits, which can always
+  // fit in an SMI value and be used as a fast sparse array / object key.
+
+  // Output code for the current contents of the index buffer.
+  var ib_code = index_stream[0] & code_mask;  // Load first input index.
+  var code_table = { };  // Key'd on our 20-bit "tuple".
+
+  emit_code(clear_code);  // Spec says first code should be a clear code.
+
+  // First index already loaded, process the rest of the stream.
+  for (var i = 1, il = index_stream.length; i < il; ++i) {
+    var k = index_stream[i] & code_mask;
+    var cur_key = ib_code << 8 | k;  // (prev, k) unique tuple.
+    var cur_code = code_table[cur_key];  // buffer + k.
+
+    // Check if we have to create a new code table entry.
+    if (cur_code === undefined) {  // We don't have buffer + k.
+      // Emit index buffer (without k).
+      // This is an inline version of emit_code, because this is the core
+      // writing routine of the compressor (and V8 cannot inline emit_code
+      // because it is a closure here in a different context).  Additionally
+      // we can call emit_byte_to_buffer less often, because we can have
+      // 30-bits (from our 31-bit signed SMI), and we know our codes will only
+      // be 12-bits, so can safely have 18-bits there without overflow.
+      // emit_code(ib_code);
+      cur |= ib_code << cur_shift;
+      cur_shift += cur_code_size;
+      while (cur_shift >= 8) {
+        buf[p++] = cur & 0xff;
+        cur >>= 8; cur_shift -= 8;
+        if (p === cur_subblock + 256) {  // Finished a subblock.
+          buf[cur_subblock] = 255;
+          cur_subblock = p++;
+        }
+      }
+
+      if (next_code === 4096) {  // Table full, need a clear.
+        emit_code(clear_code);
+        next_code = eoi_code + 1;
+        cur_code_size = min_code_size + 1;
+        code_table = { };
+      } else {  // Table not full, insert a new entry.
+        // Increase our variable bit code sizes if necessary.  This is a bit
+        // tricky as it is based on "timing" between the encoding and
+        // decoder.  From the encoders perspective this should happen after
+        // we've already emitted the index buffer and are about to create the
+        // first table entry that would overflow our current code bit size.
+        if (next_code >= (1 << cur_code_size)) ++cur_code_size;
+        code_table[cur_key] = next_code++;  // Insert into code table.
+      }
+
+      ib_code = k;  // Index buffer to single input k.
+    } else {
+      ib_code = cur_code;  // Index buffer to sequence in code table.
+    }
+  }
+
+  emit_code(ib_code);  // There will still be something in the index buffer.
+  emit_code(eoi_code);  // End Of Information.
+
+  // Flush / finalize the sub-blocks stream to the buffer.
+  emit_bytes_to_buffer(1);
+
+  // Finish the sub-blocks, writing out any unfinished lengths and
+  // terminating with a sub-block of length 0.  If we have already started
+  // but not yet used a sub-block it can just become the terminator.
+  if (cur_subblock + 1 === p) {  // Started but unused.
+    buf[cur_subblock] = 0;
+  } else {  // Started and used, write length and additional terminator block.
+    buf[cur_subblock] = p - cur_subblock - 1;
+    buf[p++] = 0;
+  }
+  return p;
+}
+
+function GifReader(buf) {
+  var p = 0;
+
+  // - Header (GIF87a or GIF89a).
+  if (buf[p++] !== 0x47 ||            buf[p++] !== 0x49 || buf[p++] !== 0x46 ||
+      buf[p++] !== 0x38 || (buf[p++]+1 & 0xfd) !== 0x38 || buf[p++] !== 0x61) {
+    throw new Error("Invalid GIF 87a/89a header.");
+  }
+
+  // - Logical Screen Descriptor.
+  var width = buf[p++] | buf[p++] << 8;
+  var height = buf[p++] | buf[p++] << 8;
+  var pf0 = buf[p++];  // <Packed Fields>.
+  var global_palette_flag = pf0 >> 7;
+  var num_global_colors_pow2 = pf0 & 0x7;
+  var num_global_colors = 1 << (num_global_colors_pow2 + 1);
+  var background = buf[p++];
+  buf[p++];  // Pixel aspect ratio (unused?).
+
+  var global_palette_offset = null;
+  var global_palette_size   = null;
+
+  if (global_palette_flag) {
+    global_palette_offset = p;
+    global_palette_size = num_global_colors;
+    p += num_global_colors * 3;  // Seek past palette.
+  }
+
+  var no_eof = true;
+
+  var frames = [ ];
+
+  var delay = 0;
+  var transparent_index = null;
+  var disposal = 0;  // 0 - No disposal specified.
+  var loop_count = null;
+
+  this.width = width;
+  this.height = height;
+
+  while (no_eof && p < buf.length) {
+    switch (buf[p++]) {
+      case 0x21:  // Graphics Control Extension Block
+        switch (buf[p++]) {
+          case 0xff:  // Application specific block
+            // Try if it's a Netscape block (with animation loop counter).
+            if (buf[p   ] !== 0x0b ||  // 21 FF already read, check block size.
+                // NETSCAPE2.0
+                buf[p+1 ] == 0x4e && buf[p+2 ] == 0x45 && buf[p+3 ] == 0x54 &&
+                buf[p+4 ] == 0x53 && buf[p+5 ] == 0x43 && buf[p+6 ] == 0x41 &&
+                buf[p+7 ] == 0x50 && buf[p+8 ] == 0x45 && buf[p+9 ] == 0x32 &&
+                buf[p+10] == 0x2e && buf[p+11] == 0x30 &&
+                // Sub-block
+                buf[p+12] == 0x03 && buf[p+13] == 0x01 && buf[p+16] == 0) {
+              p += 14;
+              loop_count = buf[p++] | buf[p++] << 8;
+              p++;  // Skip terminator.
+            } else {  // We don't know what it is, just try to get past it.
+              p += 12;
+              while (true) {  // Seek through subblocks.
+                var block_size = buf[p++];
+                // Bad block size (ex: undefined from an out of bounds read).
+                if (!(block_size >= 0)) throw Error("Invalid block size");
+                if (block_size === 0) break;  // 0 size is terminator
+                p += block_size;
+              }
+            }
+            break;
+
+          case 0xf9:  // Graphics Control Extension
+            if (buf[p++] !== 0x4 || buf[p+4] !== 0)
+              throw new Error("Invalid graphics extension block.");
+            var pf1 = buf[p++];
+            delay = buf[p++] | buf[p++] << 8;
+            transparent_index = buf[p++];
+            if ((pf1 & 1) === 0) transparent_index = null;
+            disposal = pf1 >> 2 & 0x7;
+            p++;  // Skip terminator.
+            break;
+
+          case 0xfe:  // Comment Extension.
+            while (true) {  // Seek through subblocks.
+              var block_size = buf[p++];
+              // Bad block size (ex: undefined from an out of bounds read).
+              if (!(block_size >= 0)) throw Error("Invalid block size");
+              if (block_size === 0) break;  // 0 size is terminator
+              // console.log(buf.slice(p, p+block_size).toString('ascii'));
+              p += block_size;
+            }
+            break;
+
+          default:
+            throw new Error(
+                "Unknown graphic control label: 0x" + buf[p-1].toString(16));
+        }
+        break;
+
+      case 0x2c:  // Image Descriptor.
+        var x = buf[p++] | buf[p++] << 8;
+        var y = buf[p++] | buf[p++] << 8;
+        var w = buf[p++] | buf[p++] << 8;
+        var h = buf[p++] | buf[p++] << 8;
+        var pf2 = buf[p++];
+        var local_palette_flag = pf2 >> 7;
+        var interlace_flag = pf2 >> 6 & 1;
+        var num_local_colors_pow2 = pf2 & 0x7;
+        var num_local_colors = 1 << (num_local_colors_pow2 + 1);
+        var palette_offset = global_palette_offset;
+        var palette_size = global_palette_size;
+        var has_local_palette = false;
+        if (local_palette_flag) {
+          var has_local_palette = true;
+          palette_offset = p;  // Override with local palette.
+          palette_size = num_local_colors;
+          p += num_local_colors * 3;  // Seek past palette.
+        }
+
+        var data_offset = p;
+
+        p++;  // codesize
+        while (true) {
+          var block_size = buf[p++];
+          // Bad block size (ex: undefined from an out of bounds read).
+          if (!(block_size >= 0)) throw Error("Invalid block size");
+          if (block_size === 0) break;  // 0 size is terminator
+          p += block_size;
+        }
+
+        frames.push({x: x, y: y, width: w, height: h,
+                     has_local_palette: has_local_palette,
+                     palette_offset: palette_offset,
+                     palette_size: palette_size,
+                     data_offset: data_offset,
+                     data_length: p - data_offset,
+                     transparent_index: transparent_index,
+                     interlaced: !!interlace_flag,
+                     delay: delay,
+                     disposal: disposal});
+        break;
+
+      case 0x3b:  // Trailer Marker (end of file).
+        no_eof = false;
+        break;
+
+      default:
+        throw new Error("Unknown gif block: 0x" + buf[p-1].toString(16));
+        break;
+    }
+  }
+
+  this.numFrames = function() {
+    return frames.length;
+  };
+
+  this.loopCount = function() {
+    return loop_count;
+  };
+
+  this.frameInfo = function(frame_num) {
+    if (frame_num < 0 || frame_num >= frames.length)
+      throw new Error("Frame index out of range.");
+    return frames[frame_num];
+  }
+
+  this.decodeAndBlitFrameBGRA = function(frame_num, pixels) {
+    var frame = this.frameInfo(frame_num);
+    var num_pixels = frame.width * frame.height;
+    var index_stream = new Uint8Array(num_pixels);  // At most 8-bit indices.
+    GifReaderLZWOutputIndexStream(
+        buf, frame.data_offset, index_stream, num_pixels);
+    var palette_offset = frame.palette_offset;
+
+    // NOTE(deanm): It seems to be much faster to compare index to 256 than
+    // to === null.  Not sure why, but CompareStub_EQ_STRICT shows up high in
+    // the profile, not sure if it's related to using a Uint8Array.
+    var trans = frame.transparent_index;
+    if (trans === null) trans = 256;
+
+    // We are possibly just blitting to a portion of the entire frame.
+    // That is a subrect within the framerect, so the additional pixels
+    // must be skipped over after we finished a scanline.
+    var framewidth  = frame.width;
+    var framestride = width - framewidth;
+    var xleft       = framewidth;  // Number of subrect pixels left in scanline.
+
+    // Output indicies of the top left and bottom right corners of the subrect.
+    var opbeg = ((frame.y * width) + frame.x) * 4;
+    var opend = ((frame.y + frame.height) * width + frame.x) * 4;
+    var op    = opbeg;
+
+    var scanstride = framestride * 4;
+
+    // Use scanstride to skip past the rows when interlacing.  This is skipping
+    // 7 rows for the first two passes, then 3 then 1.
+    if (frame.interlaced === true) {
+      scanstride += width * 4 * 7;  // Pass 1.
+    }
+
+    var interlaceskip = 8;  // Tracking the row interval in the current pass.
+
+    for (var i = 0, il = index_stream.length; i < il; ++i) {
+      var index = index_stream[i];
+
+      if (xleft === 0) {  // Beginning of new scan line
+        op += scanstride;
+        xleft = framewidth;
+        if (op >= opend) { // Catch the wrap to switch passes when interlacing.
+          scanstride = framestride * 4 + width * 4 * (interlaceskip-1);
+          // interlaceskip / 2 * 4 is interlaceskip << 1.
+          op = opbeg + (framewidth + framestride) * (interlaceskip << 1);
+          interlaceskip >>= 1;
+        }
+      }
+
+      if (index === trans) {
+        op += 4;
+      } else {
+        var r = buf[palette_offset + index * 3];
+        var g = buf[palette_offset + index * 3 + 1];
+        var b = buf[palette_offset + index * 3 + 2];
+        pixels[op++] = b;
+        pixels[op++] = g;
+        pixels[op++] = r;
+        pixels[op++] = 255;
+      }
+      --xleft;
+    }
+  };
+
+  // I will go to copy and paste hell one day...
+  this.decodeAndBlitFrameRGBA = function(frame_num, pixels) {
+    var frame = this.frameInfo(frame_num);
+    var num_pixels = frame.width * frame.height;
+    var index_stream = new Uint8Array(num_pixels);  // At most 8-bit indices.
+    GifReaderLZWOutputIndexStream(
+        buf, frame.data_offset, index_stream, num_pixels);
+    var palette_offset = frame.palette_offset;
+
+    // NOTE(deanm): It seems to be much faster to compare index to 256 than
+    // to === null.  Not sure why, but CompareStub_EQ_STRICT shows up high in
+    // the profile, not sure if it's related to using a Uint8Array.
+    var trans = frame.transparent_index;
+    if (trans === null) trans = 256;
+
+    // We are possibly just blitting to a portion of the entire frame.
+    // That is a subrect within the framerect, so the additional pixels
+    // must be skipped over after we finished a scanline.
+    var framewidth  = frame.width;
+    var framestride = width - framewidth;
+    var xleft       = framewidth;  // Number of subrect pixels left in scanline.
+
+    // Output indicies of the top left and bottom right corners of the subrect.
+    var opbeg = ((frame.y * width) + frame.x) * 4;
+    var opend = ((frame.y + frame.height) * width + frame.x) * 4;
+    var op    = opbeg;
+
+    var scanstride = framestride * 4;
+
+    // Use scanstride to skip past the rows when interlacing.  This is skipping
+    // 7 rows for the first two passes, then 3 then 1.
+    if (frame.interlaced === true) {
+      scanstride += width * 4 * 7;  // Pass 1.
+    }
+
+    var interlaceskip = 8;  // Tracking the row interval in the current pass.
+
+    for (var i = 0, il = index_stream.length; i < il; ++i) {
+      var index = index_stream[i];
+
+      if (xleft === 0) {  // Beginning of new scan line
+        op += scanstride;
+        xleft = framewidth;
+        if (op >= opend) { // Catch the wrap to switch passes when interlacing.
+          scanstride = framestride * 4 + width * 4 * (interlaceskip-1);
+          // interlaceskip / 2 * 4 is interlaceskip << 1.
+          op = opbeg + (framewidth + framestride) * (interlaceskip << 1);
+          interlaceskip >>= 1;
+        }
+      }
+
+      if (index === trans) {
+        op += 4;
+      } else {
+        var r = buf[palette_offset + index * 3];
+        var g = buf[palette_offset + index * 3 + 1];
+        var b = buf[palette_offset + index * 3 + 2];
+        pixels[op++] = r;
+        pixels[op++] = g;
+        pixels[op++] = b;
+        pixels[op++] = 255;
+      }
+      --xleft;
+    }
+  };
+}
+
+function GifReaderLZWOutputIndexStream(code_stream, p, output, output_length) {
+  var min_code_size = code_stream[p++];
+
+  var clear_code = 1 << min_code_size;
+  var eoi_code = clear_code + 1;
+  var next_code = eoi_code + 1;
+
+  var cur_code_size = min_code_size + 1;  // Number of bits per code.
+  // NOTE: This shares the same name as the encoder, but has a different
+  // meaning here.  Here this masks each code coming from the code stream.
+  var code_mask = (1 << cur_code_size) - 1;
+  var cur_shift = 0;
+  var cur = 0;
+
+  var op = 0;  // Output pointer.
+
+  var subblock_size = code_stream[p++];
+
+  // TODO(deanm): Would using a TypedArray be any faster?  At least it would
+  // solve the fast mode / backing store uncertainty.
+  // var code_table = Array(4096);
+  var code_table = new Int32Array(4096);  // Can be signed, we only use 20 bits.
+
+  var prev_code = null;  // Track code-1.
+
+  while (true) {
+    // Read up to two bytes, making sure we always 12-bits for max sized code.
+    while (cur_shift < 16) {
+      if (subblock_size === 0) break;  // No more data to be read.
+
+      cur |= code_stream[p++] << cur_shift;
+      cur_shift += 8;
+
+      if (subblock_size === 1) {  // Never let it get to 0 to hold logic above.
+        subblock_size = code_stream[p++];  // Next subblock.
+      } else {
+        --subblock_size;
+      }
+    }
+
+    // TODO(deanm): We should never really get here, we should have received
+    // and EOI.
+    if (cur_shift < cur_code_size)
+      break;
+
+    var code = cur & code_mask;
+    cur >>= cur_code_size;
+    cur_shift -= cur_code_size;
+
+    // TODO(deanm): Maybe should check that the first code was a clear code,
+    // at least this is what you're supposed to do.  But actually our encoder
+    // now doesn't emit a clear code first anyway.
+    if (code === clear_code) {
+      // We don't actually have to clear the table.  This could be a good idea
+      // for greater error checking, but we don't really do any anyway.  We
+      // will just track it with next_code and overwrite old entries.
+
+      next_code = eoi_code + 1;
+      cur_code_size = min_code_size + 1;
+      code_mask = (1 << cur_code_size) - 1;
+
+      // Don't update prev_code ?
+      prev_code = null;
+      continue;
+    } else if (code === eoi_code) {
+      break;
+    }
+
+    // We have a similar situation as the decoder, where we want to store
+    // variable length entries (code table entries), but we want to do in a
+    // faster manner than an array of arrays.  The code below stores sort of a
+    // linked list within the code table, and then "chases" through it to
+    // construct the dictionary entries.  When a new entry is created, just the
+    // last byte is stored, and the rest (prefix) of the entry is only
+    // referenced by its table entry.  Then the code chases through the
+    // prefixes until it reaches a single byte code.  We have to chase twice,
+    // first to compute the length, and then to actually copy the data to the
+    // output (backwards, since we know the length).  The alternative would be
+    // storing something in an intermediate stack, but that doesn't make any
+    // more sense.  I implemented an approach where it also stored the length
+    // in the code table, although it's a bit tricky because you run out of
+    // bits (12 + 12 + 8), but I didn't measure much improvements (the table
+    // entries are generally not the long).  Even when I created benchmarks for
+    // very long table entries the complexity did not seem worth it.
+    // The code table stores the prefix entry in 12 bits and then the suffix
+    // byte in 8 bits, so each entry is 20 bits.
+
+    var chase_code = code < next_code ? code : prev_code;
+
+    // Chase what we will output, either {CODE} or {CODE-1}.
+    var chase_length = 0;
+    var chase = chase_code;
+    while (chase > clear_code) {
+      chase = code_table[chase] >> 8;
+      ++chase_length;
+    }
+
+    var k = chase;
+
+    var op_end = op + chase_length + (chase_code !== code ? 1 : 0);
+    if (op_end > output_length) {
+      console.log("Warning, gif stream longer than expected.");
+      return;
+    }
+
+    // Already have the first byte from the chase, might as well write it fast.
+    output[op++] = k;
+
+    op += chase_length;
+    var b = op;  // Track pointer, writing backwards.
+
+    if (chase_code !== code)  // The case of emitting {CODE-1} + k.
+      output[op++] = k;
+
+    chase = chase_code;
+    while (chase_length--) {
+      chase = code_table[chase];
+      output[--b] = chase & 0xff;  // Write backwards.
+      chase >>= 8;  // Pull down to the prefix code.
+    }
+
+    if (prev_code !== null && next_code < 4096) {
+      code_table[next_code++] = prev_code << 8 | k;
+      // TODO(deanm): Figure out this clearing vs code growth logic better.  I
+      // have an feeling that it should just happen somewhere else, for now it
+      // is awkward between when we grow past the max and then hit a clear code.
+      // For now just check if we hit the max 12-bits (then a clear code should
+      // follow, also of course encoded in 12-bits).
+      if (next_code >= code_mask+1 && cur_code_size < 12) {
+        ++cur_code_size;
+        code_mask = code_mask << 1 | 1;
+      }
+    }
+
+    prev_code = code;
+  }
+
+  if (op !== output_length) {
+    console.log("Warning, gif stream shorter than expected.");
+  }
+
+  return output;
+}
+
+// CommonJS.
+try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
+
+    // --- END OMGGIF ---
+    </script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121215; color: #eee; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        h1 { color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.5); }
+        .studio-container { display: flex; gap: 20px; width: 100%; max-width: 1000px; }
+        .panel { background: #1e1e24; border: 1px solid #333; border-radius: 8px; padding: 20px; flex: 1; }
+        #drop-zone { border: 2px dashed #00ffcc; border-radius: 8px; padding: 40px 20px; text-align: center; cursor: pointer; transition: all 0.3s; margin-bottom: 20px; }
+        #drop-zone:hover, #drop-zone.dragover { background: rgba(0, 255, 204, 0.1); }
+        #canvas-container { width: 100%; height: 300px; background: #000; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; border-radius: 4px; overflow: hidden; background-image: linear-gradient(45deg, #222 25%, transparent 25%), linear-gradient(-45deg, #222 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #222 75%), linear-gradient(-45deg, transparent 75%, #222 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px; }
+        canvas { image-rendering: pixelated; max-width: 100%; max-height: 100%; }
+        .controls { display: grid; gap: 15px; }
+        .control-group { display: flex; align-items: center; gap: 10px; }
+        input[type="range"] { flex: 1; }
+        input[type="number"] { width: 80px; padding: 5px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px; }
+        button { background: #333; color: #fff; border: 1px solid #555; padding: 8px 16px; cursor: pointer; border-radius: 4px; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #555; }
+        button.primary { background: #00ffcc; color: #000; border: none; padding: 12px; font-size: 16px; width: 100%; margin-top: 10px;}
+        button.primary:hover { background: #00ccaa; }
+        .timeline-info { display: flex; justify-content: space-between; color: #888; font-size: 14px; margin-bottom: 5px; }
+        .trim-markers { display: flex; justify-content: space-between; margin-top: -10px; font-size: 12px; color: #00ffcc; }
+    </style>
+</head>
+<body>
+    <h1>ASCILINE Mascot Studio</h1>
+    <p>Drag & Drop a GIF, select your animation loop, and export directly to JSON!</p>
+    <div class="studio-container">
+        <div class="panel">
+            <div id="drop-zone">
+                <h3>Drag & Drop GIF Here</h3>
+                <p>or click to select file</p>
+                <input type="file" id="file-input" accept="image/gif" style="display: none;">
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <label style="font-size:12px; color:#aaa;">Zoom Preview:</label>
+                <input type="range" id="zoom-slider" min="1" max="5" value="1" step="0.5" style="width:150px;">
+            </div>
+            <div id="canvas-container" style="overflow:auto; max-height:600px;"><canvas id="preview-canvas" style="transform-origin: center center;"></canvas></div>
+            <div class="timeline-info"><span id="time-display">0.00s</span><span id="frame-display">Frame 0 / 0</span></div>
+            <input type="range" id="scrubber" min="0" max="0" value="0" disabled>
+            <div class="trim-markers"><span id="start-marker">Start: 0</span><span id="end-marker">End: All</span></div>
+        </div>
+        <div class="panel controls">
+            <h3>Trim Animation</h3>
+            <div class="control-group">
+                <button id="btn-set-start" disabled>Set Start Frame</button>
+                <button id="btn-set-end" disabled>Set End Frame</button>
+                <button id="btn-reset-trim" disabled>Reset</button>
+            </div>
+            <hr style="border: none; border-top: 1px solid #333; width: 100%; margin: 20px 0;">
+            <h3>Export Settings</h3>
+            <div class="control-group">
+                <label>ASCII Width (Columns):</label>
+                <input type="number" id="input-cols" value="50" min="10" max="300">
+            </div>
+            <div class="control-group">
+                <label>Export Type:</label>
+                <select id="input-export-type" style="flex:1; padding: 5px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">
+                    <option value="color">Color Blocks (New)</option>
+                    <option value="text">Classic ASCII (Text)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Default Facing:</label>
+                <select id="input-facing" style="flex:1; padding: 5px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">
+                    <option value="right">Facing Right (Standard)</option>
+                    <option value="left">Facing Left (Original GIF faces Left)</option>
+                </select>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #333; width: 100%; margin: 20px 0;">
+            <h3>Coordinate Mapping (Hitbox/Pivot)</h3>
+            <p style="font-size:12px; color:#aaa; margin-top:0;">Click along the outer perimeter (outline) of the object to define points, or drag to create box/circle hitboxes.</p>
+            <div class="control-group">
+                <input type="text" id="point-name" placeholder="Point Name (e.g. pivot)" style="flex:1; padding: 8px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">
+                <button id="btn-hitbox-mode" style="background:#ff00cc; color:white; border:none;">Hitbox Mode (Auto-Name)</button>
+            </div>
+            <div class="control-group" style="margin-top: 5px;">
+                <label style="font-size:12px; color:#aaa;">Hitbox Shape:</label>
+                <select id="select-hitbox-shape" style="flex:1; padding: 5px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">
+                    <option value="point">Single Point / Outline</option>
+                    <option value="rect">Rectangle Box (Drag to Draw Box)</option>
+                    <option value="circle">Circle Area (Drag to Draw Circle)</option>
+                </select>
+            </div>
+            <div style="margin-top: 5px; display: flex; align-items: center; justify-content: space-between;">
+                <label style="font-size:12px; color:#fff; cursor:pointer;">
+                    <input type="checkbox" id="chk-mirror" style="vertical-align:middle;"> X-Axis Mirror Mode (Symmetry)
+                </label>
+                <button id="btn-clear-points" style="background:#cc0000; color:white; border:none; padding:5px 10px; font-size:12px; border-radius:3px;">Clear Points</button>
+            </div>
+            <div id="points-list" style="margin-top: 10px; display: flex; flex-direction: column; gap: 5px; max-height: 100px; overflow-y: auto;">
+                <!-- Points will appear here -->
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button id="btn-export" class="primary" disabled style="flex: 1;">Export Mascot JSON</button>
+                <button id="btn-export-points" style="flex: 1; background: #00d2ff; color: #000; font-weight: bold; border: none; padding: 10px; border-radius: 4px; cursor: pointer;" disabled>Export Coordinates JSON</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        let gifReader = null;
+        let startFrameIdx = 0;
+        let endFrameIdx = 0;
+        let numFrames = 0;
+        let frameDelays = [];
+        let originalFileName = "mascot";
+        let customPoints = []; // Stores {name, ax, ay, px, py}
+        let isHitboxMode = false;
+        let isDrawingHitbox = false;
+        let lastGridX = -1;
+        let lastGridY = -1;
+        let hitboxCounter = 0;
+        
+        const canvas = document.getElementById('preview-canvas');
+        const ctx = canvas.getContext('2d');
+        const zoomSlider = document.getElementById('zoom-slider');
+        const btnHitboxMode = document.getElementById('btn-hitbox-mode');
+        const btnClearPoints = document.getElementById('btn-clear-points');
+
+        zoomSlider.addEventListener('input', (e) => {
+            canvas.style.transform = `scale(${e.target.value})`;
+        });
+
+        btnClearPoints.addEventListener('click', () => {
+            customPoints = [];
+            hitboxCounter = 0;
+            renderPointsList();
+            drawFrame(parseInt(scrubber.value));
+        });
+
+        btnHitboxMode.addEventListener('click', () => {
+            isHitboxMode = !isHitboxMode;
+            if (isHitboxMode) {
+                btnHitboxMode.style.background = '#00ffcc';
+                btnHitboxMode.style.color = '#000';
+                btnHitboxMode.innerText = 'Drawing Hitbox...';
+                document.getElementById('point-name').disabled = true;
+            } else {
+                btnHitboxMode.style.background = '#ff00cc';
+                btnHitboxMode.style.color = '#fff';
+                btnHitboxMode.innerText = 'Hitbox Mode (Auto-Name)';
+                document.getElementById('point-name').disabled = false;
+            }
+        });
+        
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const scrubber = document.getElementById('scrubber');
+        const timeDisplay = document.getElementById('time-display');
+        const frameDisplay = document.getElementById('frame-display');
+        const startMarker = document.getElementById('start-marker');
+        const endMarker = document.getElementById('end-marker');
+        
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault(); dropZone.classList.remove('dragover');
+            if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', (e) => {
+            if(e.target.files.length) handleFile(e.target.files[0]);
+        });
+
+        let isDrawingShape = false;
+        let shapeStartPx = 0, shapeStartPy = 0;
+        let shapeCurrentPx = 0, shapeCurrentPy = 0;
+        
+        function getPointerCanvasPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+            const px = clickX * (canvas.width / rect.width);
+            const py = clickY * (canvas.height / rect.height);
+            const cols = parseInt(document.getElementById('input-cols').value) || 50;
+            const scaledHeight = Math.floor(gifReader.height * (cols / gifReader.width) * 0.5);
+            const ax = Math.floor(px * (cols / canvas.width));
+            const ay = Math.floor(py * (scaledHeight / canvas.height));
+            return { px, py, ax, ay, cols, scaledHeight };
+        }
+
+        function addPointAtPointer(e) {
+            if (!gifReader) return;
+            
+            let pointName = '';
+            if (isHitboxMode) {
+                pointName = `hitbox_${hitboxCounter}`;
+            } else {
+                pointName = document.getElementById('point-name').value.trim();
+                if (!pointName) return alert("Please enter a point name or enable Hitbox mode.");
+            }
+            
+            const pos = getPointerCanvasPos(e);
+            
+            // Avoid duplicate point in same cell during drag-drawing outline
+            if (isDrawingHitbox && pos.ax === lastGridX && pos.ay === lastGridY) return;
+            if (isHitboxMode) hitboxCounter++;
+            
+            lastGridX = pos.ax;
+            lastGridY = pos.ay;
+            
+            customPoints.push({ type: 'point', name: pointName, ax: pos.ax, ay: pos.ay, px: pos.px, py: pos.py });
+            
+            if (document.getElementById('chk-mirror').checked) {
+                const mirrorPx = canvas.width - pos.px;
+                const mirrorAx = (pos.cols - 1) - pos.ax;
+                customPoints.push({ type: 'point', name: pointName + "_sym", ax: mirrorAx, ay: pos.ay, px: mirrorPx, py: pos.py });
+            }
+            
+            document.getElementById('point-name').value = '';
+            renderPointsList();
+            drawFrame(parseInt(scrubber.value));
+        }
+
+        function finishShapeDrag(e) {
+            if (!isDrawingShape || !gifReader) return;
+            isDrawingShape = false;
+            
+            const shapeType = document.getElementById('select-hitbox-shape').value;
+            let pointName = '';
+            if (isHitboxMode) {
+                pointName = `${shapeType}_${hitboxCounter++}`;
+            } else {
+                pointName = document.getElementById('point-name').value.trim() || `${shapeType}_${hitboxCounter++}`;
+            }
+
+            const startPos = { px: shapeStartPx, py: shapeStartPy };
+            const endPos = { px: shapeCurrentPx, py: shapeCurrentPy };
+            const cols = parseInt(document.getElementById('input-cols').value) || 50;
+            const scaledHeight = Math.floor(gifReader.height * (cols / gifReader.width) * 0.5);
+
+            if (shapeType === 'rect') {
+                const minPx = Math.min(startPos.px, endPos.px);
+                const minPy = Math.min(startPos.py, endPos.py);
+                const pw = Math.max(4, Math.abs(endPos.px - startPos.px));
+                const ph = Math.max(4, Math.abs(endPos.py - startPos.py));
+
+                const ax = Math.floor(minPx * (cols / canvas.width));
+                const ay = Math.floor(minPy * (scaledHeight / canvas.height));
+                const aw = Math.max(1, Math.floor(pw * (cols / canvas.width)));
+                const ah = Math.max(1, Math.floor(ph * (scaledHeight / canvas.height)));
+
+                customPoints.push({ type: 'rect', name: pointName, ax, ay, aw, ah, px: minPx, py: minPy, pw, ph });
+                
+                if (document.getElementById('chk-mirror').checked) {
+                    const mirrorPx = canvas.width - (minPx + pw);
+                    const mirrorAx = (cols - 1) - (ax + aw);
+                    customPoints.push({ type: 'rect', name: pointName + "_sym", ax: mirrorAx, ay, aw, ah, px: mirrorPx, py: minPy, pw, ph });
+                }
+            } else if (shapeType === 'circle') {
+                const pr = Math.max(4, Math.hypot(endPos.px - startPos.px, endPos.py - startPos.py));
+                const ax = Math.floor(startPos.px * (cols / canvas.width));
+                const ay = Math.floor(startPos.py * (scaledHeight / canvas.height));
+                const ar = Math.max(1, Math.floor(pr * (cols / canvas.width)));
+
+                customPoints.push({ type: 'circle', name: pointName, ax, ay, ar, px: startPos.px, py: startPos.py, pr });
+
+                if (document.getElementById('chk-mirror').checked) {
+                    const mirrorPx = canvas.width - startPos.px;
+                    const mirrorAx = (cols - 1) - ax;
+                    customPoints.push({ type: 'circle', name: pointName + "_sym", ax: mirrorAx, ay, ar, px: mirrorPx, py: startPos.py, pr });
+                }
+            }
+            
+            document.getElementById('point-name').value = '';
+            renderPointsList();
+            drawFrame(parseInt(scrubber.value));
+        }
+
+        function deletePointAtPointer(e) {
+            if (!gifReader) return;
+            const pos = getPointerCanvasPos(e);
+            let closestIdx = -1;
+            let minDist = 15;
+            customPoints.forEach((pt, idx) => {
+                const dist = Math.hypot(pt.px - pos.px, pt.py - pos.py);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestIdx = idx;
+                }
+            });
+            
+            if (closestIdx !== -1) {
+                customPoints.splice(closestIdx, 1);
+                renderPointsList();
+                drawFrame(parseInt(scrubber.value));
+            }
+        }
+
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (e.pointerId !== undefined && canvas.setPointerCapture) {
+                try { canvas.setPointerCapture(e.pointerId); } catch(err) {}
+            }
+            if (e.button === 2) {
+                deletePointAtPointer(e);
+                return;
+            }
+            const shapeType = document.getElementById('select-hitbox-shape').value;
+            const pos = getPointerCanvasPos(e);
+            
+            if (shapeType === 'rect' || shapeType === 'circle') {
+                isDrawingShape = true;
+                shapeStartPx = pos.px;
+                shapeStartPy = pos.py;
+                shapeCurrentPx = pos.px;
+                shapeCurrentPy = pos.py;
+            } else {
+                if (isHitboxMode) isDrawingHitbox = true;
+                addPointAtPointer(e);
+            }
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (e.buttons === 2) {
+                deletePointAtPointer(e);
+                return;
+            }
+            const pos = getPointerCanvasPos(e);
+            if (isDrawingShape && e.buttons === 1) {
+                shapeCurrentPx = pos.px;
+                shapeCurrentPy = pos.py;
+                drawFrame(parseInt(scrubber.value));
+            } else if (isDrawingHitbox && e.buttons === 1) {
+                addPointAtPointer(e);
+            }
+        });
+
+        const releaseCapture = (e) => {
+            if (e && e.pointerId !== undefined && canvas.releasePointerCapture) {
+                try { canvas.releasePointerCapture(e.pointerId); } catch(err) {}
+            }
+        };
+
+        canvas.addEventListener('pointerup', (e) => { 
+            if (isDrawingShape) finishShapeDrag(e);
+            isDrawingHitbox = false; lastGridX = -1; lastGridY = -1; 
+            releaseCapture(e);
+        });
+        canvas.addEventListener('pointerleave', (e) => { 
+            // Pointer capture keeps firing events smoothly outside boundary
+        });
+        canvas.addEventListener('pointercancel', (e) => { 
+            isDrawingShape = false;
+            isDrawingHitbox = false; lastGridX = -1; lastGridY = -1; 
+            releaseCapture(e);
+        });
+
+        function renderPointsList() {
+            const list = document.getElementById('points-list');
+            list.innerHTML = '';
+            customPoints.forEach((pt, idx) => {
+                const el = document.createElement('div');
+                el.style.cssText = "display:flex; justify-content:space-between; background:#222; padding:5px 10px; border-radius:4px; font-size:13px;";
+                let label = `<strong>${pt.name}</strong> `;
+                if (pt.type === 'rect') label += `[Box ${pt.aw}x${pt.ah} at x:${pt.ax}, y:${pt.ay}]`;
+                else if (pt.type === 'circle') label += `[Circle r:${pt.ar} at x:${pt.ax}, y:${pt.ay}]`;
+                else label += `[x:${pt.ax}, y:${pt.ay}]`;
+
+                el.innerHTML = `<span>${label}</span>
+                                <span style="color:#ff4444; cursor:pointer; font-weight:bold;" onclick="removePoint(${idx})">X</span>`;
+                list.appendChild(el);
+            });
+        }
+
+        window.removePoint = function(idx) {
+            customPoints.splice(idx, 1);
+            renderPointsList();
+            drawFrame(parseInt(scrubber.value));
+        }
+        
+        function handleFile(file) {
+            if (file.type !== "image/gif") return alert("Please drop a GIF file.");
+            originalFileName = file.name.split('.')[0] || "mascot";
+            const reader = new FileReader();
+            reader.onload = (e) => processGIF(e.target.result);
+            reader.readAsArrayBuffer(file);
+        }
+        
+        function processGIF(buffer) {
+            try {
+                gifReader = new GifReader(new Uint8Array(buffer));
+                numFrames = gifReader.numFrames();
+                canvas.width = gifReader.width;
+                canvas.height = gifReader.height;
+                
+                frameDelays = [];
+                for(let i=0; i<numFrames; i++) {
+                    frameDelays.push(gifReader.frameInfo(i).delay * 10 || 100);
+                }
+                
+                startFrameIdx = 0; endFrameIdx = numFrames - 1;
+                scrubber.max = numFrames - 1; scrubber.value = 0; scrubber.disabled = false;
+                
+                ['btn-set-start', 'btn-set-end', 'btn-reset-trim', 'btn-export', 'btn-export-points'].forEach(id => document.getElementById(id).disabled = false);
+                
+                updateTrimMarkers();
+                drawFrame(0);
+            } catch (err) {
+                console.error(err); alert("Error parsing GIF: " + err.message);
+            }
+        }
+        
+        function drawFrame(idx, skipOverlays = false) {
+            if(!gifReader) return;
+            const pixels = new Uint8ClampedArray(gifReader.width * gifReader.height * 4);
+            gifReader.decodeAndBlitFrameRGBA(idx, pixels);
+            const imageData = new ImageData(pixels, gifReader.width, gifReader.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.putImageData(imageData, 0, 0);
+            
+            if (skipOverlays) return;
+            
+            let timeMs = 0; for(let i=0; i<idx; i++) timeMs += frameDelays[i];
+            timeDisplay.innerText = (timeMs / 1000).toFixed(2) + "s";
+            frameDisplay.innerText = `Frame ${idx + 1} / ${numFrames}`;
+            
+            // Draw saved custom points & shapes overlay
+            customPoints.forEach(pt => {
+                ctx.save();
+                if (pt.type === 'rect') {
+                    ctx.setLineDash([4, 3]);
+                    ctx.strokeStyle = '#ff0055';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(pt.px, pt.py, pt.pw, pt.ph);
+                    ctx.fillStyle = 'rgba(255, 0, 85, 0.2)';
+                    ctx.fillRect(pt.px, pt.py, pt.pw, pt.ph);
+                } else if (pt.type === 'circle') {
+                    ctx.setLineDash([4, 3]);
+                    ctx.strokeStyle = '#00ffcc';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(pt.px, pt.py, pt.pr, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.fillStyle = 'rgba(0, 255, 204, 0.2)';
+                    ctx.fill();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(pt.px, pt.py, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ff00cc';
+                    ctx.fill();
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.stroke();
+                }
+                ctx.restore();
+            });
+
+            // Draw live shape dragging preview
+            if (isDrawingShape) {
+                ctx.save();
+                const shapeType = document.getElementById('select-hitbox-shape').value;
+                if (shapeType === 'rect') {
+                    const minPx = Math.min(shapeStartPx, shapeCurrentPx);
+                    const minPy = Math.min(shapeStartPy, shapeCurrentPy);
+                    const pw = Math.abs(shapeCurrentPx - shapeStartPx);
+                    const ph = Math.abs(shapeCurrentPy - shapeStartPy);
+                    ctx.setLineDash([3, 3]);
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(minPx, minPy, pw, ph);
+                    ctx.fillStyle = 'rgba(255, 255, 0, 0.25)';
+                    ctx.fillRect(minPx, minPy, pw, ph);
+                } else if (shapeType === 'circle') {
+                    const pr = Math.hypot(shapeCurrentPx - shapeStartPx, shapeCurrentPy - shapeStartPy);
+                    ctx.setLineDash([3, 3]);
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(shapeStartPx, shapeStartPy, pr, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.fillStyle = 'rgba(255, 255, 0, 0.25)';
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+        
+        scrubber.addEventListener('input', () => drawFrame(parseInt(scrubber.value)));
+        
+        document.getElementById('btn-set-start').onclick = () => { startFrameIdx = parseInt(scrubber.value); if(startFrameIdx > endFrameIdx) endFrameIdx = startFrameIdx; updateTrimMarkers(); };
+        document.getElementById('btn-set-end').onclick = () => { endFrameIdx = parseInt(scrubber.value); if(endFrameIdx < startFrameIdx) startFrameIdx = endFrameIdx; updateTrimMarkers(); };
+        document.getElementById('btn-reset-trim').onclick = () => { startFrameIdx = 0; endFrameIdx = numFrames - 1; updateTrimMarkers(); };
+        
+        function updateTrimMarkers() { startMarker.innerText = `Start: ${startFrameIdx}`; endMarker.innerText = `End: ${endFrameIdx}`; }
+        
+        document.getElementById('btn-export').onclick = () => {
+            const cols = parseInt(document.getElementById('input-cols').value);
+            const exportType = document.getElementById('input-export-type').value;
+            const facing = document.getElementById('input-facing').value || "right";
+            const scaledWidth = cols;
+            const scaledHeight = Math.floor(gifReader.height * (cols / gifReader.width) * 0.5);
+            
+            let exportData = { isColored: exportType === "color", metadata: { width: scaledWidth, height: scaledHeight, facing: facing, type: exportType, customPoints: customPoints }, frames: [] };
+            
+            let scaleCanvas = document.createElement('canvas');
+            scaleCanvas.width = scaledWidth; scaleCanvas.height = scaledHeight;
+            let scaleCtx = scaleCanvas.getContext('2d', { willReadFrequently: true });
+            
+            const asciiChars = "@%#*+=-:. ";
+            
+            for(let i = startFrameIdx; i <= endFrameIdx; i++) {
+                drawFrame(i, true);
+                scaleCtx.clearRect(0, 0, scaledWidth, scaledHeight);
+                scaleCtx.drawImage(canvas, 0, 0, scaledWidth, scaledHeight);
+                const imgData = scaleCtx.getImageData(0, 0, scaledWidth, scaledHeight).data;
+                let frameData = [];
+                for(let y=0; y<scaledHeight; y++) {
+                    let row = exportType === "text" ? "" : [];
+                    for(let x=0; x<scaledWidth; x++) {
+                        let idx = (y * scaledWidth + x) * 4;
+                        let r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2], a = imgData[idx+3];
+                        
+                        if (exportType === "text") {
+                            if (a < 128) {
+                                row += " ";
+                            } else {
+                                // Calculate luminance
+                                let lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+                                let charIdx = Math.floor(lum * (asciiChars.length - 1));
+                                row += asciiChars[charIdx];
+                            }
+                        } else {
+                            if(a < 128) row.push(null);
+                            else {
+                                let hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+                                row.push(hex);
+                            }
+                        }
+                    }
+                    frameData.push(row);
+                }
+                exportData.frames.push(frameData);
+            }
+            
+            // Restore preview UI
+            drawFrame(parseInt(scrubber.value));
+            
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData));
+            const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", `${originalFileName}_${exportType}anim.json`);
+            document.body.appendChild(dl); dl.click(); dl.remove();
+        };
+
+        document.getElementById('btn-export-points').onclick = () => {
+            const cols = parseInt(document.getElementById('input-cols').value) || 50;
+            const scaledWidth = cols;
+            const scaledHeight = gifReader ? Math.floor(gifReader.height * (cols / gifReader.width) * 0.5) : 25;
+            
+            let coordsData = {
+                metadata: {
+                    width: scaledWidth,
+                    height: scaledHeight,
+                    customPoints: customPoints
+                }
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(coordsData, null, 2));
+            const dl = document.createElement('a');
+            dl.setAttribute("href", dataStr);
+            dl.setAttribute("download", `${originalFileName}_custompoints.json`);
+            document.body.appendChild(dl);
+            dl.click();
+            dl.remove();
+        };
+    </script>
+</body>
+</html>
