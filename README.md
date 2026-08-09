@@ -1,5 +1,8 @@
-## ASCILINE Mascots 
-```text
+<div align="center">
+
+# 🐱 ASCILINE Mascots
+
+<pre>
        _                        
        \`*-.                    
         )  _`-.                 
@@ -15,14 +18,15 @@
          ; '   : :`-:     _.`* ;
       .*' /  .*' ; .*`- +'  `*' 
       `*-*   `*-*  `*-*'
+</pre>
 
-```
-
-> **Bringing Spatial Awareness & Physics to HTML DOM Elements.**
+**Bringing Spatial Awareness & Physics to HTML DOM Elements.**
 
 [![Vanilla JS](https://img.shields.io/badge/Dependencies-Zero%20Vanilla%20JS-brightgreen)](https://github.com/YusufB5/ASCILINE-Mascots)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Architecture](https://img.shields.io/badge/Architecture-Spatial%20DOM%20Kinematics-blue)](https://github.com/YusufB5/ASCILINE-Mascots)
+
+</div>
 
 ---
 
@@ -56,16 +60,16 @@ ASCILINE is built with a modular, 4-tier object-oriented architecture designed f
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Layer 1: Base Physics Engine (`lib/mascot.js`)
+### Layer 1: Base Physics Engine (`lib/core/mascot.js`)
 * **Kinematic Core**: Implements real-time gravity, velocity vectors (`vx`, `vy`), bouncing, ground friction, and dynamic toss throwing based on pointer drag history.
 * **Spatial DOM Sensing**: Uses the native browser **Range API** and `getClientRects()` to map non-destructive text nodes into solid collision platforms without injecting extra DOM wrappers.
 * **Universal Hitbox System**: Hosts the base `setCustomHitboxes()` and `renderHitboxOverlay()` methods, enabling any mascot subclass to possess custom spatial hitboxes.
 
-### Layer 2: Sprite & Rendering Engine (`lib/sprite.js`)
+### Layer 2: Sprite & Rendering Engine (`lib/core/sprite.js`)
 * **Matrix Format Processing**: Parses 2D character arrays or HTML color matrix frames exported from GIF Studio.
 * **HTML Frame Caching**: Converts matrix rows into efficient HTML `<span>` blocks with inline colors, caching processed HTML strings to minimize garbage collection (GC) pauses.
 
-### Layer 3: Walking Kinematics (`lib/walking_sprite.js`)
+### Layer 3: Walking Kinematics (`lib/physics/pure/walking_sprite.js`)
 * **State Machine**: Handles animation state transitions (Walk, Idle Freeze, Idle Play, Fall, Drag).
 * **Directional Flip Sync**: Automatically syncs character sprite orientation (`scaleX(-1)`) and SVG hitbox overlays when the mascot changes direction.
 
@@ -78,14 +82,44 @@ ASCILINE is built with a modular, 4-tier object-oriented architecture designed f
 
 ---
 
-## 🛠️ Studio Editor (`tools/gif_studio.html`)
+## 🧬 Class Inheritance Hierarchy
 
-ASCILINE includes a standalone, browser-based studio editor:
+```text
+Mascot  (core/mascot.js)
+└── SpriteMascot  (core/sprite.js)
+    │
+    ├── [physics/pure/]  — directly extend core, no intermediate parent
+    │   ├── WalkingSpriteMascot   (walking_sprite.js)
+    │   ├── StaticMascot          (static_mascot.js)
+    │   ├── FlyingMascot          (flyer.js)
+    │   ├── SwimmerMascot         (swimmer.js)
+    │   ├── SpiderMascot          (spider.js)   ← extends Mascot directly
+    │   ├── BouncerMascot         (bouncer.js)
+    │   ├── GodHand               (hand.js)
+    │   ├── PokeballMascot        (pokeball.js)
+    │   ├── JumperPhysics         (jumper_physics.js)
+    │   ├── ProjectilePhysics     (launcher_physics.js)
+    │   ├── RunnerMascot          (runner_physics.js)
+    │   ├── BombPhysics           (bomb_physics.js)
+    │   └── SwordMascot           (sword_physics.js)
+    │
+    ├── [physics/pure/helpers/]  — pure utility, used by other physics
+    │   └── DomPhysicsObject      (physics_text.js)
+    │
+    └── [physics/derived/]  — extend a pure physics class, not core directly
+        └── BlackholePhysics      (blackhole_physics.js) ← extends StaticMascot
+```
 
-* **Image & GIF Converter**: Import animated GIFs or image sequences directly in the browser.
-* **Color Quantization**: Map image colors to custom ASCII character matrices.
-* **Interactive Hitbox Designer**: Draw point-by-point polygons, rectangles, or circles directly on top of animation frames.
-* **Multi-Format Export**: Export directly to compact `.json` or `.js` data files ready for web integration.
+---
+
+## 🛠️ Studio Editor & CLI Tools (`tools/`)
+
+ASCILINE provides both an in-browser GUI Studio and a suite of Python CLI conversion tools:
+
+* **GIF Studio GUI (`tools/gif_studio.html`)**: Standalone browser editor with live canvas preview, color quantization, crop controls, and visual hitbox designer.
+* **CLI Converters (`tools/gif2color.py` & `tools/gif2mascot.py`)**: Command-line converters to turn GIFs into colored HTML matrices or text ASCII JSON files.
+* **GIF Utilities (`tools/gif_inspector.py` & `tools/gif_trimmer.py`)**: CLI tools to inspect frame delays, dimensions, and trim frame sequences.
+* **Studio Builder (`tools/build_studio.py`)**: Tool for bundling and building standalone Studio assets.
 
 ---
 
@@ -94,10 +128,12 @@ ASCILINE includes a standalone, browser-based studio editor:
 ### 1. Include ASCILINE Engine Scripts
 
 ```html
-<!-- Core Engine Scripts -->
-<script src="lib/mascot.js"></script>
-<script src="lib/sprite.js"></script>
-<script src="lib/walking_sprite.js"></script>
+<!-- Core Engine (always required) -->
+<script src="lib/core/mascot.js"></script>
+<script src="lib/core/sprite.js"></script>
+
+<!-- Pick a physics behavior (optional) -->
+<script src="lib/physics/pure/walking_sprite.js"></script>
 ```
 
 ### 2. Load Mascot Animation Data
@@ -129,15 +165,31 @@ ASCILINE.getMascots().push(mascot);
 ```text
 ASCILINE-Mascots/
 ├── lib/
-│   ├── mascot.js          # Base Physics Engine & Spatial DOM Sensing
-│   ├── sprite.js          # Matrix Renderer & HTML Frame Formatter
-│   ├── walking_sprite.js  # Kinematics State Machine & Directional Flip
-│   └── static_mascot.js   # Static Image/Text Mascot Subclass
-├── tools/
-│   └── gif_studio.html    # GIF-to-ASCII Converter & Hitbox Studio Editor
-└── example/
-    ├── index.html         # Live Interactive Demo Showcase
-    └── assets/            # Exported Mascot Animations & Data
+│   ├── core/                       # Absolute base parent classes (always load first)
+│   │   ├── mascot.js               # Kinematic engine, Spatial DOM sensing, Hitbox system
+│   │   └── sprite.js               # Matrix renderer, HTML span formatter, Frame caching
+│   │
+│   ├── physics/
+│   │   ├── pure/                   # 13+ physics behaviors (directly extend core)
+│   │   │   └── helpers/
+│   │   │       └── physics_text.js # DomPhysicsObject — shared DOM particle utility
+│   │   │
+│   │   └── derived/                # Physics that extend another pure physics class
+│   │       └── blackhole_physics.js
+│   │
+│   └── interactive/                # Fixed environmental zones & SFX (not mascots)
+│       ├── sword_zone.js
+│       ├── water_zone.js
+│       └── audio_manager.js
+│
+├── tools/                          # GIF Studio GUI & Python CLI Tools
+│   ├── gif_studio.html             # In-browser visual editor & hitbox designer
+│   ├── gif2color.py                # CLI: GIF → color HTML matrix
+│   ├── gif2mascot.py               # CLI: GIF → text ASCII matrix
+│   ├── gif_inspector.py            # CLI: inspect frame delays & dimensions
+│   └── gif_trimmer.py              # CLI: trim frame sequences
+│
+└── example/                        # Live interactive demo showcase & assets
 ```
 
 ---
