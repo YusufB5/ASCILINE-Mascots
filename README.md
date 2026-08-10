@@ -80,40 +80,6 @@ ASCILINE is built with a modular, 4-tier object-oriented architecture designed f
   - `rect`: Dashed rectangle boundary.
   - `circle`: Dashed circular boundary.
 
----
-
-## 🧬 Class Inheritance Hierarchy
-
-```text
-Mascot  (core/mascot.js)
-└── SpriteMascot  (core/sprite.js)
-    │
-    ├── [physics/pure/motion/]   — Locomotion & movement behaviors (directly extend core)
-    │   ├── WalkingSpriteMascot   (walking_sprite.js)
-    │   ├── StaticMascot          (static_mascot.js)
-    │   ├── FlyingMascot          (flyer.js)
-    │   ├── SwimmerMascot         (swimmer.js)
-    │   ├── SpiderMascot          (spider.js)   ← extends Mascot directly
-    │   ├── BouncerMascot         (bouncer.js)
-    │   ├── JumperPhysics         (jumper_physics.js)
-    │   └── RunnerMascot          (runner_physics.js)
-    │
-    ├── [physics/pure/action/]   — Weapon, explosion & interaction behaviors (directly extend core)
-    │   ├── GodHand               (hand.js)
-    │   ├── PokeballMascot        (pokeball.js)
-    │   ├── ProjectilePhysics     (launcher_physics.js)
-    │   ├── BombPhysics           (bomb_physics.js)
-    │   └── SwordMascot           (sword_physics.js)
-    │
-    ├── [physics/pure/helpers/]  — Pure utility classes used by other physics
-    │   └── DomPhysicsObject      (physics_text.js)
-    │
-    └── [physics/derived/]       — Physics that extend another pure physics class
-        └── BlackholePhysics      (blackhole_physics.js) ← extends StaticMascot
-```
-
----
-
 ## 🛠️ Studio Editor & CLI Tools (`tools/`)
 
 ASCILINE provides both an in-browser GUI Studio and a suite of Python CLI conversion tools:
@@ -162,23 +128,23 @@ ASCILINE.getMascots().push(mascot);
 
 ---
 
-## 📂 Repository Structure
+## 📂 Repository & Architecture Structure
 
 ```text
 ASCILINE-Mascots/
 ├── lib/
-│   ├── core/                       # Absolute base parent classes (always load first)
-│   │   ├── mascot.js               # Kinematic engine, Spatial DOM sensing, Hitbox system
+│   ├── core/                       # Base Parent Engine Classes (always load first)
+│   │   ├── mascot.js               # Kinematic engine, Spatial DOM sensing, SVG Hitbox system
 │   │   └── sprite.js               # Matrix renderer, HTML span formatter, Frame caching
 │   │
-│   ├── physics/
-│   │   ├── pure/                   # Directly extend core (Mascot / SpriteMascot)
-│   │   │   ├── motion/             # Locomotion behaviors (walk, run, fly, swim, climb, bounce)
-│   │   │   ├── action/             # Interactive & combat behaviors (bomb, sword, ball, hand)
-│   │   │   └── helpers/            # Shared particle utilities (DomPhysicsObject)
+│   ├── physics/                    # Mascot Physics Behaviors
+│   │   ├── pure/                   # Directly extend Core classes (Mascot / SpriteMascot)
+│   │   │   ├── motion/             # Locomotion behaviors (walking_sprite, runner, flyer, swimmer, spider, etc.)
+│   │   │   ├── action/             # Interactive & combat (bomb_physics, sword_physics, pokeball, hand, launcher)
+│   │   │   └── helpers/            # Shared particle utilities (physics_text.js / DomPhysicsObject)
 │   │   │
-│   │   └── derived/                # Extended from another pure physics class
-│   │       └── blackhole_physics.js
+│   │   └── derived/                # Extend another pure physics class
+│   │       └── blackhole_physics.js # Gravitational pull zone (extends StaticMascot)
 │   │
 │   ├── interactive/                # Fixed environmental zones (sword_zone.js, water_zone.js)
 │   │
