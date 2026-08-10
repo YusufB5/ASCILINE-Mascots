@@ -88,25 +88,27 @@ ASCILINE is built with a modular, 4-tier object-oriented architecture designed f
 Mascot  (core/mascot.js)
 └── SpriteMascot  (core/sprite.js)
     │
-    ├── [physics/pure/]  — directly extend core, no intermediate parent
+    ├── [physics/pure/motion/]   — Locomotion & movement behaviors (directly extend core)
     │   ├── WalkingSpriteMascot   (walking_sprite.js)
     │   ├── StaticMascot          (static_mascot.js)
     │   ├── FlyingMascot          (flyer.js)
     │   ├── SwimmerMascot         (swimmer.js)
     │   ├── SpiderMascot          (spider.js)   ← extends Mascot directly
     │   ├── BouncerMascot         (bouncer.js)
+    │   ├── JumperPhysics         (jumper_physics.js)
+    │   └── RunnerMascot          (runner_physics.js)
+    │
+    ├── [physics/pure/action/]   — Weapon, explosion & interaction behaviors (directly extend core)
     │   ├── GodHand               (hand.js)
     │   ├── PokeballMascot        (pokeball.js)
-    │   ├── JumperPhysics         (jumper_physics.js)
     │   ├── ProjectilePhysics     (launcher_physics.js)
-    │   ├── RunnerMascot          (runner_physics.js)
     │   ├── BombPhysics           (bomb_physics.js)
     │   └── SwordMascot           (sword_physics.js)
     │
-    ├── [physics/pure/helpers/]  — pure utility, used by other physics
+    ├── [physics/pure/helpers/]  — Pure utility classes used by other physics
     │   └── DomPhysicsObject      (physics_text.js)
     │
-    └── [physics/derived/]  — extend a pure physics class, not core directly
+    └── [physics/derived/]       — Physics that extend another pure physics class
         └── BlackholePhysics      (blackhole_physics.js) ← extends StaticMascot
 ```
 
@@ -132,8 +134,8 @@ ASCILINE provides both an in-browser GUI Studio and a suite of Python CLI conver
 <script src="lib/core/mascot.js"></script>
 <script src="lib/core/sprite.js"></script>
 
-<!-- Pick a physics behavior (optional) -->
-<script src="lib/physics/pure/walking_sprite.js"></script>
+<!-- Pick a physics behavior (e.g. motion/walking_sprite.js) -->
+<script src="lib/physics/pure/motion/walking_sprite.js"></script>
 ```
 
 ### 2. Load Mascot Animation Data
@@ -170,25 +172,21 @@ ASCILINE-Mascots/
 │   │   └── sprite.js               # Matrix renderer, HTML span formatter, Frame caching
 │   │
 │   ├── physics/
-│   │   ├── pure/                   # 13+ physics behaviors (directly extend core)
-│   │   │   └── helpers/
-│   │   │       └── physics_text.js # DomPhysicsObject — shared DOM particle utility
+│   │   ├── pure/                   # Directly extend core (Mascot / SpriteMascot)
+│   │   │   ├── motion/             # Locomotion behaviors (walk, run, fly, swim, climb, bounce)
+│   │   │   ├── action/             # Interactive & combat behaviors (bomb, sword, ball, hand)
+│   │   │   └── helpers/            # Shared particle utilities (DomPhysicsObject)
 │   │   │
-│   │   └── derived/                # Physics that extend another pure physics class
+│   │   └── derived/                # Extended from another pure physics class
 │   │       └── blackhole_physics.js
 │   │
-│   └── interactive/                # Fixed environmental zones & SFX (not mascots)
-│       ├── sword_zone.js
-│       ├── water_zone.js
-│       └── audio_manager.js
+│   ├── interactive/                # Fixed environmental zones (sword_zone.js, water_zone.js)
+│   │
+│   └── effects/                    # Visual & Audio Effect Managers
+│       └── audio/
+│           └── audio_manager.js    # Global Audio & Event Bridge
 │
 ├── tools/                          # GIF Studio GUI & Python CLI Tools
-│   ├── gif_studio.html             # In-browser visual editor & hitbox designer
-│   ├── gif2color.py                # CLI: GIF → color HTML matrix
-│   ├── gif2mascot.py               # CLI: GIF → text ASCII matrix
-│   ├── gif_inspector.py            # CLI: inspect frame delays & dimensions
-│   └── gif_trimmer.py              # CLI: trim frame sequences
-│
 └── example/                        # Live interactive demo showcase & assets
 ```
 
