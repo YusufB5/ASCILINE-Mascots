@@ -884,6 +884,18 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
                     <option value="left">Facing Left (Original GIF faces Left)</option>
                 </select>
             </div>
+            <div class="control-group">
+                <label>Idle Mode:</label>
+                <select id="input-idle" style="flex:1; padding: 5px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">
+                    <option value="freeze">Freeze on stop (Default)</option>
+                    <option value="play">Keep animating</option>
+                    <option value="custom">Specific Frame</option>
+                </select>
+            </div>
+            <div class="control-group" id="group-idle-frame" style="display: none; margin-top: 5px;">
+                <label style="font-size: 12px; color: #aaa;">Idle Frame Index:</label>
+                <input type="number" id="input-idle-frame" value="0" min="0" style="width: 70px; padding: 4px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">
+            </div>
             
             <hr style="border: none; border-top: 1px solid #333; width: 100%; margin: 20px 0;">
             <h3>Coordinate Mapping (Hitbox/Pivot)</h3>
@@ -938,6 +950,12 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
 
         zoomSlider.addEventListener('input', (e) => {
             canvas.style.transform = `scale(${e.target.value})`;
+        });
+
+        const selectIdle = document.getElementById('input-idle');
+        const groupIdleFrame = document.getElementById('group-idle-frame');
+        selectIdle.addEventListener('change', () => {
+            groupIdleFrame.style.display = selectIdle.value === 'custom' ? 'flex' : 'none';
         });
 
         btnClearPoints.addEventListener('click', () => {
@@ -1305,58 +1323,152 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
         function updateTrimMarkers() { startMarker.innerText = `Start: ${startFrameIdx}`; endMarker.innerText = `End: ${endFrameIdx}`; }
         
         document.getElementById('btn-export').onclick = () => {
-            const cols = parseInt(document.getElementById('input-cols').value);
+            const cols = parseInt(document.getElementById('input-cols').value) || 50;
             const exportType = document.getElementById('input-export-type').value;
             const facing = document.getElementById('input-facing').value || "right";
-            const scaledWidth = cols;
-            const scaledHeight = Math.floor(gifReader.height * (cols / gifReader.width) * 0.5);
             
-            let exportData = { isColored: exportType === "color", metadata: { width: scaledWidth, height: scaledHeight, facing: facing, type: exportType, customPoints: customPoints }, frames: [] };
+            let idleMode = document.getElementById('input-idle').value || "freeze";
+            if (idleMode === "custom") {
+                idleMode = parseInt(document.getElementById('input-idle-frame').value) || 0;
+            }
+            
+            const scaledWidth = cols;
+            const scaledHeight = Math.max(1, Math.floor(gifReader.height * (cols / gifReader.width) * 0.5));
             
             let scaleCanvas = document.createElement('canvas');
             scaleCanvas.width = scaledWidth; scaleCanvas.height = scaledHeight;
             let scaleCtx = scaleCanvas.getContext('2d', { willReadFrequently: true });
             
             const asciiChars = "@%#*+=-:. ";
+            let rawFrames = [];
+            let minX = scaledWidth, minY = scaledHeight, maxX = -1, maxY = -1;
             
+            // First pass: render all frames to scaled canvas and determine cross-frame global bounding box (alpha >= 128)
             for(let i = startFrameIdx; i <= endFrameIdx; i++) {
                 drawFrame(i, true);
                 scaleCtx.clearRect(0, 0, scaledWidth, scaledHeight);
                 scaleCtx.drawImage(canvas, 0, 0, scaledWidth, scaledHeight);
                 const imgData = scaleCtx.getImageData(0, 0, scaledWidth, scaledHeight).data;
-                let frameData = [];
+                let frameMatrix = [];
                 for(let y=0; y<scaledHeight; y++) {
-                    let row = exportType === "text" ? "" : [];
+                    let row = [];
                     for(let x=0; x<scaledWidth; x++) {
                         let idx = (y * scaledWidth + x) * 4;
                         let r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2], a = imgData[idx+3];
-                        
-                        if (exportType === "text") {
-                            if (a < 128) {
-                                row += " ";
-                            } else {
-                                // Calculate luminance
-                                let lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
-                                let charIdx = Math.floor(lum * (asciiChars.length - 1));
-                                row += asciiChars[charIdx];
-                            }
+                        if (a >= 128) {
+                            if (x < minX) minX = x;
+                            if (x > maxX) maxX = x;
+                            if (y < minY) minY = y;
+                            if (y > maxY) maxY = y;
+                            row.push({ r, g, b, a });
                         } else {
-                            if(a < 128) row.push(null);
-                            else {
-                                let hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-                                row.push(hex);
-                            }
+                            row.push(null);
                         }
                     }
-                    frameData.push(row);
+                    frameMatrix.push(row);
                 }
-                exportData.frames.push(frameData);
+                rawFrames.push(frameMatrix);
             }
+            
+            // Fallback if image is completely empty
+            if (minX > maxX || minY > maxY) {
+                minX = 0; minY = 0; maxX = scaledWidth - 1; maxY = scaledHeight - 1;
+            }
+            
+            const croppedWidth = maxX - minX + 1;
+            const croppedHeight = maxY - minY + 1;
+            
+            // Adjust customPoints to match cropped canvas origin (subtract minX, minY)
+            const adjustedPoints = customPoints.map(pt => {
+                let adj = { ...pt };
+                if (pt.ax !== undefined) adj.ax = Math.max(0, pt.ax - minX);
+                if (pt.ay !== undefined) adj.ay = Math.max(0, pt.ay - minY);
+                return adj;
+            });
+            
+            // Second pass: extract cropped lines (as text or HTML runs)
+            let exportedFrames = [];
+            for (let f = 0; f < rawFrames.length; f++) {
+                if (exportType === "text") {
+                    let lines = [];
+                    for (let y = minY; y <= maxY; y++) {
+                        let rowStr = "";
+                        for (let x = minX; x <= maxX; x++) {
+                            let pixel = rawFrames[f][y][x];
+                            if (!pixel) {
+                                rowStr += " ";
+                            } else {
+                                let lum = (0.299 * pixel.r + 0.587 * pixel.g + 0.114 * pixel.b) / 255.0;
+                                let charIdx = Math.floor(lum * (asciiChars.length - 1));
+                                rowStr += asciiChars[charIdx];
+                            }
+                        }
+                        lines.push(rowStr);
+                    }
+                    exportedFrames.push(lines.join("\n"));
+                } else {
+                    let htmlLines = [];
+                    for (let y = minY; y <= maxY; y++) {
+                        let rowHtml = "";
+                        let currentType = null;
+                        let currentColor = null;
+                        let runLength = 0;
+                        
+                        for (let x = minX; x <= maxX; x++) {
+                            let pixel = rawFrames[f][y][x];
+                            let pType = pixel ? "color" : "space";
+                            let pColor = pixel ? "#" + ((1 << 24) + (pixel.r << 16) + (pixel.g << 8) + pixel.b).toString(16).slice(1) : null;
+                            
+                            if (currentType === null) {
+                                currentType = pType;
+                                currentColor = pColor;
+                                runLength = 1;
+                            } else if (currentType === pType && currentColor === pColor) {
+                                runLength++;
+                            } else {
+                                if (currentType === "space") {
+                                    rowHtml += " ".repeat(runLength);
+                                } else {
+                                    rowHtml += `<span style='color:${currentColor}'>` + "█".repeat(runLength) + "</span>";
+                                }
+                                currentType = pType;
+                                currentColor = pColor;
+                                runLength = 1;
+                            }
+                        }
+                        if (currentType === "space") {
+                            rowHtml += " ".repeat(runLength);
+                        } else if (currentType === "color") {
+                            rowHtml += `<span style='color:${currentColor}'>` + "█".repeat(runLength) + "</span>";
+                        }
+                        htmlLines.push(rowHtml);
+                    }
+                    exportedFrames.push(htmlLines.join("\n"));
+                }
+            }
+            
+            let exportData = {
+                name: originalFileName,
+                width: cols,
+                frameCount: exportedFrames.length,
+                isColored: exportType === "color",
+                facing: facing,
+                idleMode: idleMode,
+                metadata: {
+                    width: croppedWidth,
+                    height: croppedHeight,
+                    facing: facing,
+                    idleMode: idleMode,
+                    type: exportType,
+                    customPoints: adjustedPoints
+                },
+                frames: exportedFrames
+            };
             
             // Restore preview UI
             drawFrame(parseInt(scrubber.value));
             
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData));
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
             const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", `${originalFileName}_${exportType}anim.json`);
             document.body.appendChild(dl); dl.click(); dl.remove();
         };

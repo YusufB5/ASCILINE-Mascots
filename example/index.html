@@ -23,8 +23,6 @@
             z-index: 9999;
             user-select: none;
             will-change: transform;
-            
-            /* Mascot wrapper styling */
             outline: none;
             background: transparent;
         }
@@ -39,15 +37,16 @@
             white-space: pre;
             pointer-events: none;
             letter-spacing: 0px;
+            display: inline-block;
+            width: max-content;
         }
         .colored-mascot-pre span {
-            /* inline-block was distorting character width */
             letter-spacing: 0px;
         }
         
         /* Demo Page Styles */
         .container {
-            max-width: 800px;
+            max-width: 860px;
             margin: 50px auto;
             text-align: center;
         }
@@ -58,23 +57,39 @@
             border: 2px solid #444;
             margin-bottom: 20px;
         }
-        h1 {
-            color: #4CAF50;
+        h1 { color: #4CAF50; }
+
+        .btn-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
         }
-        button {
-            padding: 15px 30px;
-            font-size: 18px;
-            background: #4CAF50;
-            color: white;
+        .btn-grid button {
+            padding: 12px 22px;
+            font-size: 15px;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            transition: transform 0.2s;
+            transition: transform 0.15s, filter 0.15s;
+            font-weight: bold;
+            color: #fff;
         }
-        button:hover {
-            transform: scale(1.05);
-            background: #45a049;
+        .btn-grid button:hover {
+            transform: scale(1.07);
+            filter: brightness(1.15);
         }
+        .btn-walker  { background: #4CAF50; }
+        .btn-flyer   { background: #2196F3; }
+        .btn-runner  { background: #FF9800; }
+        .btn-jumper  { background: #9C27B0; }
+        .btn-swimmer { background: #00BCD4; }
+        .btn-bouncer { background: #F44336; }
+        .btn-spider  { background: #795548; }
+        .btn-static  { background: #607D8B; }
+        .btn-clear   { background: #333; border: 1px solid #666; }
+
         .platform {
             margin: 40px auto;
             padding: 20px;
@@ -82,11 +97,9 @@
             width: 60%;
             border-radius: 8px;
         }
-
-        /* Mascot drag hint text */
         .mascot-drag-hint {
             position: absolute;
-            top: -25px; /* Above the mascot */
+            top: -25px;
             left: 50%;
             transform: translateX(-50%);
             font-size: 11px;
@@ -111,9 +124,29 @@
         <div class="hero">
             <h1>ASCILINE Mascot Engine</h1>
             <p>A lightweight, interactive ASCII mascot engine for the web.</p>
-            <p>Click the button below to spawn a mascot. Try dragging and throwing it!</p>
-            <br>
-            <button onclick="spawnCat()">Spawn Cat</button>
+            <p>Spawn any physics type below — drag &amp; throw them all!</p>
+
+            <div class="btn-grid">
+                <button id="btn-walker"      class="btn-walker"  onclick="spawnWalker()">🐱 Color Cat</button>
+                <button id="btn-walker-mono" class="btn-walker"  style="background:#555;" onclick="spawnMonoWalker()">🐱 Mono ASCII Cat</button>
+                <button id="btn-flyer"       class="btn-flyer"   onclick="spawnFlyer()">🕊️ Flyer</button>
+                <button id="btn-runner"      class="btn-runner"  onclick="spawnRunner()">🏃 Runner</button>
+                <button id="btn-jumper"      class="btn-jumper"  onclick="spawnJumper()">🐸 Jumper</button>
+                <button id="btn-swimmer"     class="btn-swimmer" onclick="spawnSwimmer()">🐟 Swimmer</button>
+                <button id="btn-bouncer"     class="btn-bouncer" onclick="spawnBouncer()">🏀 Bouncer</button>
+                <button id="btn-spider"      class="btn-spider"  onclick="spawnSpider()">🕷️ Spider</button>
+                <button id="btn-static"      class="btn-static"  onclick="spawnStatic()">🖼️ Static</button>
+                <button id="btn-clear"       class="btn-clear"   onclick="clearAll()">🗑️ Clear All</button>
+            </div>
+
+            <!-- Developer Debug Controls -->
+            <div style="margin-top: 15px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                <span style="color: #888; font-size: 13px; display: flex; align-items: center; margin-right: 5px;">🛠️ Debug Layers:</span>
+                <button onclick="ASCILINE.toggleDebug('dragBoxes')" style="background: #2a2a35; color: #ff0055; border: 1px solid #ff0055; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">📦 Drag Box</button>
+                <button onclick="ASCILINE.toggleDebug('hitboxes')"  style="background: #2a2a35; color: #00ffcc; border: 1px solid #00ffcc; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">🎯 Custom Hitbox</button>
+                <button onclick="ASCILINE.toggleDebug('platforms')" style="background: #2a2a35; color: #00d2ff; border: 1px solid #00d2ff; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">🧱 Platforms</button>
+                <button onclick="toggleAllDebug()"                 style="background: #333; color: #fff; border: 1px solid #777; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">⚡ All</button>
+            </div>
         </div>
         
         <!-- Mascots will collide with this because of the platformSelectors in mascot.js -->
@@ -122,26 +155,54 @@
     </div>
 
     <!-- Core Engine & Physics Scripts -->
-    <script src="../lib/core/mascot.js?v=13"></script>
-    <script src="../lib/core/sprite.js?v=13"></script>
-    <script src="../lib/physics/pure/motion/walking_sprite.js?v=13"></script>
-    <script src="../lib/physics/pure/motion/static_mascot.js?v=13"></script>
+    <script src="../lib/core/mascot.js?v=20"></script>
+    <script src="../lib/core/sprite.js?v=20"></script>
+    <script src="../lib/physics/pure/motion/walking_sprite.js?v=20"></script>
+    <script src="../lib/physics/pure/motion/static_mascot.js?v=20"></script>
+    <script src="../lib/physics/pure/motion/flyer.js?v=20"></script>
+    <script src="../lib/physics/pure/motion/runner_physics.js?v=20"></script>
+    <script src="../lib/physics/pure/motion/jumper_physics.js?v=20"></script>
+    <script src="../lib/physics/pure/motion/swimmer.js?v=20"></script>
+    <script src="../lib/physics/pure/motion/bouncer.js?v=20"></script>
+    <script src="../lib/physics/pure/motion/spider.js?v=20"></script>
     
-    <!-- Load mascot data directly via JS (Avoids CORS/fetch errors for local file:// usage) -->
-    <script src="assets/secondcat_data.js?v=12"></script>
-    
+    <!-- Standard JSON Assets loaded via Fetch/HTTP Server -->
     <script>
-        // Custom configuration (Optional)
         window.ASCILINE_CONFIG = {
             platformSelectors: 'h1, h2, h3, h4, h5, h6, p, button, .platform'
         };
 
-        function spawnCat() {
-            // 1. Create a new walking mascot instance, passing the raw data object directly
-            const cat = new WalkingSpriteMascot(window.SECOND_CAT_DATA, 80, 50, 15);
-            
-            // 2. Add it to the ASCILINE engine so it gets physics updates
-            ASCILINE.getMascots().push(cat);
+        const COLOR_CAT_JSON = "assets/secondcat_coloranim.json?t=" + Date.now();
+        const MONO_CAT_JSON  = "assets/secondcat_textanim.json?t=" + Date.now();
+
+        function push(m) { ASCILINE.getMascots().push(m); }
+
+        function spawnWalker()     { push(new WalkingSpriteMascot(COLOR_CAT_JSON, 50, 25, 15)); }
+        function spawnMonoWalker() { push(new WalkingSpriteMascot(MONO_CAT_JSON, 50, 25, 15)); }
+        function spawnFlyer()      { push(new FlyingMascot(COLOR_CAT_JSON, 50, 25, 15, 1.5)); }
+        function spawnRunner()     { push(new RunnerMascot(COLOR_CAT_JSON, 50, 25, 15)); }
+        function spawnJumper()     { push(new JumperPhysics(COLOR_CAT_JSON, 50, 25, 15)); }
+        function spawnSwimmer()    { push(new SwimmerMascot(COLOR_CAT_JSON, { width: 50, height: 25, fps: 15 })); }
+        function spawnBouncer()    { push(new BouncerMascot(COLOR_CAT_JSON, 50, 25, 15)); }
+        function spawnSpider()     { push(new SpiderMascot()); }
+        function spawnStatic()     { push(new StaticMascot(COLOR_CAT_JSON, 50, 25)); }
+
+        function toggleAllDebug() {
+            const isAnyActive = window.ASCILINE_CONFIG.debug.dragBoxes || 
+                                window.ASCILINE_CONFIG.debug.hitboxes || 
+                                window.ASCILINE_CONFIG.debug.platforms;
+            const targetState = !isAnyActive;
+            ASCILINE.setDebug({
+                dragBoxes: targetState,
+                hitboxes: targetState,
+                platforms: targetState
+            });
+        }
+
+        function clearAll() {
+            const mascots = ASCILINE.getMascots();
+            mascots.forEach(m => m.destroy ? m.destroy() : m.wrapper && m.wrapper.remove());
+            mascots.length = 0;
         }
     </script>
 </body>

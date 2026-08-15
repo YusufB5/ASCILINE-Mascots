@@ -50,19 +50,38 @@ html_template = """<!DOCTYPE html>
             <div class="trim-markers"><span id="start-marker">Start: 0</span><span id="end-marker">End: All</span></div>
         </div>
         <div class="panel controls">
-            <h3>Trim Animation</h3>
+            <h3>Trim & Playback</h3>
             <div class="control-group">
                 <button id="btn-set-start" disabled>Set Start Frame</button>
                 <button id="btn-set-end" disabled>Set End Frame</button>
-                <button id="btn-reset-trim" disabled>Reset</button>
+                <button id="btn-reset-trim" disabled>Reset Range</button>
             </div>
-            <hr style="border: none; border-top: 1px solid #333; width: 100%; margin: 20px 0;">
-            <h3>Export Settings</h3>
+            <hr style="border: none; border-top: 1px solid #333; width: 100%; margin: 15px 0;">
+            <h3>Mascot Settings</h3>
             <div class="control-group">
-                <label>ASCII Width (Columns):</label>
+                <label style="min-width: 140px;">ASCII Width (Cols):</label>
                 <input type="number" id="input-cols" value="50" min="10" max="300">
             </div>
-            <button id="btn-export" class="primary" disabled>Export Mascot JSON</button>
+            <div class="control-group">
+                <label style="min-width: 140px;">Facing Direction:</label>
+                <select id="select-facing" style="background:#333; color:#fff; border:1px solid #555; padding:5px; border-radius:4px; flex:1;">
+                    <option value="right">Right (Default)</option>
+                    <option value="left">Left</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label style="min-width: 140px;">Idle Mode:</label>
+                <select id="select-idle" style="background:#333; color:#fff; border:1px solid #555; padding:5px; border-radius:4px; flex:1;">
+                    <option value="freeze">Freeze on stop</option>
+                    <option value="play">Keep animating</option>
+                    <option value="0">Reset to Frame 0</option>
+                </select>
+            </div>
+            <hr style="border: none; border-top: 1px solid #333; width: 100%; margin: 15px 0;">
+            <div style="display:flex; gap:10px;">
+                <button id="btn-export-color" class="primary" style="flex:1;" disabled>Export Color JSON</button>
+                <button id="btn-export-text" class="primary" style="background:#4da6ff; flex:1;" disabled>Export Mono Text JSON</button>
+            </div>
         </div>
     </div>
     <script>
@@ -71,6 +90,9 @@ html_template = """<!DOCTYPE html>
         let endFrameIdx = 0;
         let numFrames = 0;
         let frameDelays = [];
+        let currentBaseName = "mascot";
+        
+        const ASCII_CHARS = "@%#*+=-:. ";
         
         const canvas = document.getElementById('preview-canvas');
         const ctx = canvas.getContext('2d');
@@ -95,7 +117,10 @@ html_template = """<!DOCTYPE html>
         });
         
         function handleFile(file) {
-            if (file.type !== "image/gif") return alert("Please drop a GIF file.");
+            if (file.type !== "image/gif" && !file.name.toLowerCase().endsWith('.gif')) {
+                return alert("Please drop a GIF file.");
+            }
+            currentBaseName = file.name.replace(/\\.[^/.]+$/, "");
             const reader = new FileReader();
             reader.onload = (e) => processGIF(e.target.result);
             reader.readAsArrayBuffer(file);
@@ -113,10 +138,16 @@ html_template = """<!DOCTYPE html>
                     frameDelays.push(gifReader.frameInfo(i).delay * 10 || 100);
                 }
                 
-                startFrameIdx = 0; endFrameIdx = numFrames - 1;
-                scrubber.max = numFrames - 1; scrubber.value = 0; scrubber.disabled = false;
+                startFrameIdx = 0; 
+                endFrameIdx = numFrames - 1;
+                scrubber.max = numFrames - 1; 
+                scrubber.value = 0; 
+                scrubber.disabled = false;
                 
-                ['btn-set-start', 'btn-set-end', 'btn-reset-trim', 'btn-export'].forEach(id => document.getElementById(id).disabled = false);
+                ['btn-set-start', 'btn-set-end', 'btn-reset-trim', 'btn-export-color', 'btn-export-text'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.disabled = false;
+                });
                 
                 updateTrimMarkers();
                 drawFrame(0);
@@ -133,56 +164,206 @@ html_template = """<!DOCTYPE html>
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.putImageData(imageData, 0, 0);
             
-            let timeMs = 0; for(let i=0; i<idx; i++) timeMs += frameDelays[i];
+            let timeMs = 0; 
+            for(let i=0; i<idx; i++) timeMs += frameDelays[i];
             timeDisplay.innerText = (timeMs / 1000).toFixed(2) + "s";
             frameDisplay.innerText = `Frame ${idx} / ${numFrames - 1}`;
         }
         
         scrubber.addEventListener('input', () => drawFrame(parseInt(scrubber.value)));
         
-        document.getElementById('btn-set-start').onclick = () => { startFrameIdx = parseInt(scrubber.value); if(startFrameIdx > endFrameIdx) endFrameIdx = startFrameIdx; updateTrimMarkers(); };
-        document.getElementById('btn-set-end').onclick = () => { endFrameIdx = parseInt(scrubber.value); if(endFrameIdx < startFrameIdx) startFrameIdx = endFrameIdx; updateTrimMarkers(); };
-        document.getElementById('btn-reset-trim').onclick = () => { startFrameIdx = 0; endFrameIdx = numFrames - 1; updateTrimMarkers(); };
+        document.getElementById('btn-set-start').onclick = () => { 
+            startFrameIdx = parseInt(scrubber.value); 
+            if(startFrameIdx > endFrameIdx) endFrameIdx = startFrameIdx; 
+            updateTrimMarkers(); 
+        };
+        document.getElementById('btn-set-end').onclick = () => { 
+            endFrameIdx = parseInt(scrubber.value); 
+            if(endFrameIdx < startFrameIdx) startFrameIdx = endFrameIdx; 
+            updateTrimMarkers(); 
+        };
+        document.getElementById('btn-reset-trim').onclick = () => { 
+            startFrameIdx = 0; 
+            endFrameIdx = numFrames - 1; 
+            updateTrimMarkers(); 
+        };
         
-        function updateTrimMarkers() { startMarker.innerText = `Start: ${startFrameIdx}`; endMarker.innerText = `End: ${endFrameIdx}`; }
+        function updateTrimMarkers() { 
+            startMarker.innerText = `Start: ${startFrameIdx}`; 
+            endMarker.innerText = `End: ${endFrameIdx}`; 
+        }
         
-        document.getElementById('btn-export').onclick = () => {
-            const cols = parseInt(document.getElementById('input-cols').value) || 50;
+        // Compute scaled pixel matrix and calculate cross-frame global bounding box
+        function computeFramesData(cols) {
             const aspect = canvas.width / canvas.height;
             const scaledWidth = cols;
             const scaledHeight = Math.max(1, Math.round(cols / aspect / 2));
             
-            let exportData = { metadata: { width: scaledWidth, height: scaledHeight, facing: "right" }, frames: [] };
-            
             let scaleCanvas = document.createElement('canvas');
-            scaleCanvas.width = scaledWidth; scaleCanvas.height = scaledHeight;
+            scaleCanvas.width = scaledWidth; 
+            scaleCanvas.height = scaledHeight;
             let scaleCtx = scaleCanvas.getContext('2d', { willReadFrequently: true });
+            
+            let rawFrames = [];
+            let minX = scaledWidth, minY = scaledHeight, maxX = -1, maxY = -1;
             
             for(let i = startFrameIdx; i <= endFrameIdx; i++) {
                 drawFrame(i);
                 scaleCtx.clearRect(0, 0, scaledWidth, scaledHeight);
                 scaleCtx.drawImage(canvas, 0, 0, scaledWidth, scaledHeight);
                 const imgData = scaleCtx.getImageData(0, 0, scaledWidth, scaledHeight).data;
-                let frameColors = [];
+                
+                let frameMatrix = [];
                 for(let y=0; y<scaledHeight; y++) {
                     let row = [];
                     for(let x=0; x<scaledWidth; x++) {
                         let idx = (y * scaledWidth + x) * 4;
                         let r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2], a = imgData[idx+3];
-                        if(a < 128) row.push(null);
-                        else {
-                            let hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-                            row.push(hex);
+                        if(a >= 128) {
+                            if(x < minX) minX = x;
+                            if(x > maxX) maxX = x;
+                            if(y < minY) minY = y;
+                            if(y > maxY) maxY = y;
+                            row.push({ r, g, b, a });
+                        } else {
+                            row.push(null);
                         }
                     }
-                    frameColors.push(row);
+                    frameMatrix.push(row);
                 }
-                exportData.frames.push(frameColors);
+                rawFrames.push(frameMatrix);
             }
             
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData));
-            const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", "mascot_coloranim.json");
-            document.body.appendChild(dl); dl.click(); dl.remove();
+            // If completely empty, fallback to full size
+            if (minX > maxX || minY > maxY) {
+                minX = 0; minY = 0; maxX = scaledWidth - 1; maxY = scaledHeight - 1;
+            }
+            
+            const bbox = { minX, minY, maxX, maxY, width: maxX - minX + 1, height: maxY - minY + 1 };
+            return { rawFrames, bbox, scaledWidth, scaledHeight };
+        }
+        
+        function downloadJSON(data, filename) {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+            const dl = document.createElement('a'); 
+            dl.setAttribute("href", dataStr); 
+            dl.setAttribute("download", filename);
+            document.body.appendChild(dl); 
+            dl.click(); 
+            dl.remove();
+        }
+        
+        document.getElementById('btn-export-color').onclick = () => {
+            const cols = parseInt(document.getElementById('input-cols').value) || 50;
+            const facing = document.getElementById('select-facing').value;
+            const idleMode = document.getElementById('select-idle').value;
+            
+            const { rawFrames, bbox } = computeFramesData(cols);
+            
+            let colorFrames = [];
+            for (let f = 0; f < rawFrames.length; f++) {
+                let htmlLines = [];
+                for (let y = bbox.minY; y <= bbox.maxY; y++) {
+                    let rowHtml = "";
+                    let currentType = null;
+                    let currentColor = null;
+                    let runLength = 0;
+                    
+                    for (let x = bbox.minX; x <= bbox.maxX; x++) {
+                        let pixel = rawFrames[f][y][x];
+                        let pType = pixel ? "color" : "space";
+                        let pColor = pixel ? "#" + ((1 << 24) + (pixel.r << 16) + (pixel.g << 8) + pixel.b).toString(16).slice(1) : null;
+                        
+                        if (currentType === null) {
+                            currentType = pType;
+                            currentColor = pColor;
+                            runLength = 1;
+                        } else if (currentType === pType && currentColor === pColor) {
+                            runLength++;
+                        } else {
+                            if (currentType === "space") {
+                                rowHtml += " ".repeat(runLength);
+                            } else {
+                                rowHtml += `<span style='color:${currentColor}'>` + "█".repeat(runLength) + "</span>";
+                            }
+                            currentType = pType;
+                            currentColor = pColor;
+                            runLength = 1;
+                        }
+                    }
+                    if (currentType === "space") {
+                        rowHtml += " ".repeat(runLength);
+                    } else if (currentType === "color") {
+                        rowHtml += `<span style='color:${currentColor}'>` + "█".repeat(runLength) + "</span>";
+                    }
+                    htmlLines.push(rowHtml);
+                }
+                colorFrames.push(htmlLines.join("\n"));
+            }
+            
+            const exportData = {
+                name: currentBaseName,
+                width: cols,
+                frameCount: colorFrames.length,
+                isColored: true,
+                facing: facing,
+                idleMode: idleMode,
+                metadata: {
+                    width: bbox.width,
+                    height: bbox.height,
+                    facing: facing,
+                    idleMode: idleMode
+                },
+                frames: colorFrames
+            };
+            
+            downloadJSON(exportData, `${currentBaseName}_coloranim.json`);
+        };
+        
+        document.getElementById('btn-export-text').onclick = () => {
+            const cols = parseInt(document.getElementById('input-cols').value) || 50;
+            const facing = document.getElementById('select-facing').value;
+            const idleMode = document.getElementById('select-idle').value;
+            
+            const { rawFrames, bbox } = computeFramesData(cols);
+            
+            let textFrames = [];
+            for (let f = 0; f < rawFrames.length; f++) {
+                let lines = [];
+                for (let y = bbox.minY; y <= bbox.maxY; y++) {
+                    let rowChars = [];
+                    for (let x = bbox.minX; x <= bbox.maxX; x++) {
+                        let pixel = rawFrames[f][y][x];
+                        if (!pixel) {
+                            rowChars.push(" ");
+                        } else {
+                            let gray = Math.round(0.2989 * pixel.r + 0.5870 * pixel.g + 0.1140 * pixel.b);
+                            let charIdx = Math.round((gray / 255.0) * (ASCII_CHARS.length - 1));
+                            rowChars.push(ASCII_CHARS[charIdx]);
+                        }
+                    }
+                    lines.push(rowChars.join(""));
+                }
+                textFrames.push(lines.join("\n"));
+            }
+            
+            const exportData = {
+                name: currentBaseName,
+                width: cols,
+                frameCount: textFrames.length,
+                isColored: false,
+                facing: facing,
+                idleMode: idleMode,
+                metadata: {
+                    width: bbox.width,
+                    height: bbox.height,
+                    facing: facing,
+                    idleMode: idleMode
+                },
+                frames: textFrames
+            };
+            
+            downloadJSON(exportData, `${currentBaseName}_textanim.json`);
         };
     </script>
 </body>

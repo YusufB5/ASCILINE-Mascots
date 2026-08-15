@@ -3,66 +3,37 @@ import json
 import os
 from PIL import Image
 
+# Standard ASCII ramp from dark to light (high density to low density)
+ASCII_CHARS = "@%#*+=-:. "
+
 def resize_image(image, new_width=40):
     width, height = image.size
     # Adjust aspect ratio for monospace font height (characters are usually twice as tall as they are wide)
     ratio = height / width / 2.0
     new_height = int(new_width * ratio)
+    if new_height < 1:
+        new_height = 1
     resized_image = image.resize((new_width, new_height))
     return resized_image
 
-def rgba_to_hex(r, g, b):
-    return f"#{r:02x}{g:02x}{b:02x}"
-
-def frame_to_html(frame):
+def frame_to_ascii(frame):
     width, height = frame.size
     pixels = frame.load()
     
-    html_lines = []
-    
+    lines = []
     for y in range(height):
-        row_html = ""
-        current_type = None # "space" or "color"
-        current_color = None
-        run_length = 0
-        
+        row_chars = []
         for x in range(width):
             r, g, b, a = pixels[x, y]
-            
             if a < 128:
-                p_type = "space"
-                p_color = None
+                row_chars.append(" ")
             else:
-                p_type = "color"
-                p_color = rgba_to_hex(r, g, b)
-                
-            if current_type is None:
-                current_type = p_type
-                current_color = p_color
-                run_length = 1
-            elif current_type == p_type and current_color == p_color:
-                run_length += 1
-            else:
-                # Flush previous
-                if current_type == "space":
-                    row_html += " " * run_length
-                else:
-                    row_html += f"<span style='color:{current_color}'>" + ("█" * run_length) + "</span>"
-                
-                # Start new
-                current_type = p_type
-                current_color = p_color
-                run_length = 1
-                
-        # Flush last run of the row
-        if current_type == "space":
-            row_html += " " * run_length
-        elif current_type == "color":
-            row_html += f"<span style='color:{current_color}'>" + ("█" * run_length) + "</span>"
-            
-        html_lines.append(row_html)
+                gray = int(0.2989 * r + 0.5870 * g + 0.1140 * b)
+                char_idx = int((gray / 255.0) * (len(ASCII_CHARS) - 1))
+                row_chars.append(ASCII_CHARS[char_idx])
+        lines.append("".join(row_chars))
         
-    return "\n".join(html_lines)
+    return "\n".join(lines)
 
 def extract_frames(gif_path, new_width):
     try:
@@ -73,6 +44,7 @@ def extract_frames(gif_path, new_width):
 
     raw_frames = []
     
+    # Iterate over frames in the GIF
     for frame_idx in range(img.n_frames):
         img.seek(frame_idx)
         frame = img.convert("RGBA")
@@ -83,7 +55,7 @@ def extract_frames(gif_path, new_width):
     global_bbox = None
     for frame in raw_frames:
         alpha = frame.split()[3]
-        # Only consider pixels with alpha >= 128 as visible to match frame_to_html logic
+        # Only consider pixels with alpha >= 128 as visible to match frame_to_ascii logic
         mask = alpha.point(lambda p: 255 if p >= 128 else 0)
         bbox = mask.getbbox()
         if bbox:
@@ -94,23 +66,22 @@ def extract_frames(gif_path, new_width):
                 global_bbox[1] = min(global_bbox[1], bbox[1])
                 global_bbox[2] = max(global_bbox[2], bbox[2])
                 global_bbox[3] = max(global_bbox[3], bbox[3])
-                
-    frames_html = []
+
+    frames_text = []
     for frame in raw_frames:
-        # Crop frame to global bounding box to remove empty padding
         if global_bbox:
             cropped = frame.crop(global_bbox)
         else:
             cropped = frame
             
-        html_frame = frame_to_html(cropped)
-        frames_html.append(html_frame)
+        text_frame = frame_to_ascii(cropped)
+        frames_text.append(text_frame)
         
-    return frames_html
+    return frames_text
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python gif2color.py <input.gif> [width=40] [--l|--r] [--idle=freeze|play|0]")
+        print("Usage: python gif2text.py <input.gif> [width=40] [--l|--r] [--idle=freeze|play|0]")
         sys.exit(1)
         
     input_file = sys.argv[1]
@@ -118,7 +89,7 @@ if __name__ == "__main__":
     # Parse arguments
     width = 40
     facing = "right"
-    idle_mode = "freeze" # Default to pausing on current frame
+    idle_mode = "freeze"
     
     for arg in sys.argv[2:]:
         if arg == "--l":
@@ -131,9 +102,9 @@ if __name__ == "__main__":
             width = int(arg)
     
     base_name = os.path.splitext(os.path.basename(input_file))[0]
-    output_file = f"{base_name}_coloranim.json"
+    output_file = f"{base_name}_textanim.json"
     
-    print(f"Processing {input_file} (Width: {width}, Facing: {facing}, Idle: {idle_mode}) with COLORS...")
+    print(f"Processing {input_file} (Width: {width}, Facing: {facing}, Idle: {idle_mode}) as pure ASCII text...")
     frames = extract_frames(input_file, width)
     
     if frames:
@@ -141,7 +112,7 @@ if __name__ == "__main__":
             "name": base_name,
             "width": width,
             "frameCount": len(frames),
-            "isColored": True,
+            "isColored": False,
             "facing": facing,
             "idleMode": idle_mode,
             "frames": frames
@@ -158,7 +129,7 @@ if __name__ == "__main__":
                 pass
                 
         with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2)
+            json.dump(data, f, indent=2, ensure_ascii=False)
             
-        print(f"Successfully created {output_file} with {len(frames)} colored frames!")
-        print("Load this JSON in SpriteMascot to see the full color pixel art.")
+        print(f"Successfully created {output_file} with {len(frames)} text frames!")
+        print("Load this JSON in SpriteMascot for high-performance pure ASCII animation.")

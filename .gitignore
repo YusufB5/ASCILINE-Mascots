@@ -12,3 +12,7 @@ Thumbs.db
 node_modules/
 dist/
 build/
+
+# Legacy Tools
+tools/gif2text_old.py
+
