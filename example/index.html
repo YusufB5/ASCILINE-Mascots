@@ -127,16 +127,16 @@
             <p>Spawn any physics type below — drag &amp; throw them all!</p>
 
             <div class="btn-grid">
-                <button id="btn-walker"      class="btn-walker"  onclick="spawnWalker()">🐱 Color Cat</button>
-                <button id="btn-walker-mono" class="btn-walker"  style="background:#555;" onclick="spawnMonoWalker()">🐱 Mono ASCII Cat</button>
-                <button id="btn-flyer"       class="btn-flyer"   onclick="spawnFlyer()">🕊️ Flyer</button>
-                <button id="btn-runner"      class="btn-runner"  onclick="spawnRunner()">🏃 Runner</button>
-                <button id="btn-jumper"      class="btn-jumper"  onclick="spawnJumper()">🐸 Jumper</button>
-                <button id="btn-swimmer"     class="btn-swimmer" onclick="spawnSwimmer()">🐟 Swimmer</button>
-                <button id="btn-bouncer"     class="btn-bouncer" onclick="spawnBouncer()">🏀 Bouncer</button>
-                <button id="btn-spider"      class="btn-spider"  onclick="spawnSpider()">🕷️ Spider</button>
-                <button id="btn-static"      class="btn-static"  onclick="spawnStatic()">🖼️ Static</button>
-                <button id="btn-clear"       class="btn-clear"   onclick="clearAll()">🗑️ Clear All</button>
+                <button id="btn-walker"   class="btn-walker"   onclick="ASCILINE.spawn('walker_cat')">🐱 Walker Cat</button>
+                <button id="btn-flyer"    class="btn-flyer"    onclick="ASCILINE.spawn('flying_cat')">🚀 Flying Cat</button>
+                <button id="btn-runner"   class="btn-runner"   onclick="ASCILINE.spawn('speedy_cat')">⚡ Speedy Cat</button>
+                <button id="btn-jumper"   class="btn-jumper"   onclick="ASCILINE.spawn('jumping_cat')">🦘 Jumping Cat</button>
+                <button id="btn-swimmer"  class="btn-swimmer"  onclick="ASCILINE.spawn('swimming_cat')">🏊 Swimming Cat</button>
+                <button id="btn-bouncer"  class="btn-bouncer"  onclick="ASCILINE.spawn('bouncy_cat')">🏀 Bouncy Cat</button>
+                <button id="btn-sleeping" class="btn-static"   onclick="ASCILINE.spawn('sleeping_cat')">💤 Sleeping Cat</button>
+                <button id="btn-bomb"     class="btn-bouncer"  style="background:#e63946; color:#fff;" onclick="ASCILINE.spawn('bomb')">💣 Bomb Cat</button>
+                <button id="btn-spider"   class="btn-spider"   onclick="ASCILINE.spawn('spider')">🕷️ Spider</button>
+                <button id="btn-clear"    class="btn-clear"    onclick="ASCILINE.clear_all()">🗑️ Clear All</button>
             </div>
 
             <!-- Developer Debug Controls -->
@@ -150,45 +150,32 @@
             </div>
         </div>
         
-        <!-- Mascots will collide with this because of the platformSelectors in mascot.js -->
+        <!-- Platform Element -->
         <h2 class="platform">Mascots will land on me!</h2>
-        <p class="platform" style="width:40%">And on me too!</p>
+        <p class="platform" style="width:40%; margin-top: 15px;">And on me too!</p>
     </div>
 
     <!-- Core Engine & Physics Scripts -->
-    <script src="../lib/core/mascot.js?v=27"></script>
-    <script src="../lib/core/sprite.js?v=27"></script>
-    <script src="../lib/physics/pure/motion/walking_sprite.js?v=21"></script>
-    <script src="../lib/physics/pure/motion/static_mascot.js?v=21"></script>
-    <script src="../lib/physics/pure/motion/flyer.js?v=21"></script>
-    <script src="../lib/physics/pure/motion/runner_physics.js?v=21"></script>
-    <script src="../lib/physics/pure/motion/jumper_physics.js?v=21"></script>
-    <script src="../lib/physics/pure/motion/swimmer.js?v=21"></script>
-    <script src="../lib/physics/pure/motion/bouncer.js?v=21"></script>
-    <script src="../lib/physics/pure/motion/spider.js?v=21"></script>
+    <script src="../lib/core/mascot.js?v=28"></script>
+    <script src="../lib/core/sprite.js?v=28"></script>
+    <script src="../lib/physics/pure/motion/walking_sprite.js?v=22"></script>
+    <script src="../lib/physics/pure/motion/static_mascot.js?v=22"></script>
+    <script src="../lib/physics/pure/motion/flyer.js?v=22"></script>
+    <script src="../lib/physics/pure/motion/runner_physics.js?v=22"></script>
+    <script src="../lib/physics/pure/motion/jumper_physics.js?v=22"></script>
+    <script src="../lib/physics/pure/motion/swimmer.js?v=22"></script>
+    <script src="../lib/physics/pure/motion/bouncer.js?v=22"></script>
+    <script src="../lib/physics/pure/motion/spider.js?v=22"></script>
+    <script src="../lib/physics/pure/helpers/physics_text.js?v=22"></script>
+    <script src="../lib/physics/pure/action/bomb_physics.js?v=22"></script>
     
-    <!-- Standard JSON Assets loaded via Fetch/HTTP Server -->
+    <!-- Standard Configuration -->
     <script>
         window.ASCILINE_CONFIG = Object.assign(window.ASCILINE_CONFIG || {}, {
             platformSelectors: 'h1, h2, h3, h4, h5, h6, p, button, .platform'
         });
         // Configure local assets path for example page
         ASCILINE.baseAssetUrl = 'assets/';
-
-        const COLOR_CAT_JSON = 'secondcat_coloranim.json?t=' + Date.now();
-        const MONO_CAT_JSON  = 'secondcat_textanim.json?t=' + Date.now();
-
-        function push(m) { ASCILINE.getMascots().push(m); }
-
-        function spawnWalker()     { push(new WalkingSpriteMascot(COLOR_CAT_JSON, 50, 25, 15)); }
-        function spawnMonoWalker() { push(new WalkingSpriteMascot(MONO_CAT_JSON, 50, 25, 15)); }
-        function spawnFlyer()      { push(new FlyingMascot(COLOR_CAT_JSON, 50, 25, 15, 1.5)); }
-        function spawnRunner()     { push(new RunnerMascot(COLOR_CAT_JSON, 50, 25, 15)); }
-        function spawnJumper()     { push(new JumperPhysics(COLOR_CAT_JSON, 50, 25, 15)); }
-        function spawnSwimmer()    { push(new SwimmerMascot(COLOR_CAT_JSON, { width: 50, height: 25, fps: 15 })); }
-        function spawnBouncer()    { push(new BouncerMascot(COLOR_CAT_JSON, 50, 25, 15)); }
-        function spawnSpider()     { push(new SpiderMascot()); }
-        function spawnStatic()     { push(new StaticMascot(COLOR_CAT_JSON, 50, 25)); }
 
         function toggleAllDebug() {
             const isAnyActive = window.ASCILINE_CONFIG.debug && (
@@ -204,12 +191,6 @@
                 platforms: targetState,
                 fps: targetState
             });
-        }
-
-        function clearAll() {
-            const mascots = ASCILINE.getMascots();
-            mascots.forEach(m => m.destroy ? m.destroy() : m.wrapper && m.wrapper.remove());
-            mascots.length = 0;
         }
     </script>
 </body>
