@@ -893,13 +893,14 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
                 </select>
             </div>
             <div class="control-group" id="group-idle-frame" style="display: none; margin-top: 5px;">
-                <label style="font-size: 12px; color: #aaa;">Idle Frame Index:</label>
-                <input type="number" id="input-idle-frame" value="0" min="0" style="width: 70px; padding: 4px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">
+                <label style="font-size: 12px; color: #aaa;">Idle Frame (1-based):</label>
+                <input type="number" id="input-idle-frame" value="1" min="1" max="1" style="width: 70px; padding: 4px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">
+                <span id="label-idle-frame-hint" style="color: #888; font-size: 11px; margin-left: 5px;">(1 to 1)</span>
             </div>
-            
+
             <hr style="border: none; border-top: 1px solid #333; width: 100%; margin: 20px 0;">
             <h3>Coordinate Mapping (Hitbox/Pivot)</h3>
-            <p style="font-size:12px; color:#aaa; margin-top:0;">Click along the outer perimeter (outline) of the object to define points, or drag to create box/circle hitboxes.</p>
+            <p style="font-size:12px; color:#aaa; margin-top:0;">Click along the outer perimeter (outline) of the object to define points, or drag to create box/circle/polygon hitboxes.</p>
             <div class="control-group">
                 <input type="text" id="point-name" placeholder="Point Name (e.g. pivot)" style="flex:1; padding: 8px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">
                 <button id="btn-hitbox-mode" style="background:#ff00cc; color:white; border:none;">Hitbox Mode (Auto-Name)</button>
@@ -907,9 +908,10 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
             <div class="control-group" style="margin-top: 5px;">
                 <label style="font-size:12px; color:#aaa;">Hitbox Shape:</label>
                 <select id="select-hitbox-shape" style="flex:1; padding: 5px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">
-                    <option value="point">Single Point / Outline</option>
+                    <option value="polygon">Polygon Area (Connects Points into Solid Hitbox)</option>
                     <option value="rect">Rectangle Box (Drag to Draw Box)</option>
                     <option value="circle">Circle Area (Drag to Draw Circle)</option>
+                    <option value="point">Single Point / Anchor (Individual Dots)</option>
                 </select>
             </div>
             <div style="margin-top: 5px; display: flex; align-items: center; justify-content: space-between;">
@@ -1010,7 +1012,8 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
             const px = clickX * (canvas.width / rect.width);
             const py = clickY * (canvas.height / rect.height);
             const cols = parseInt(document.getElementById('input-cols').value) || 50;
-            const scaledHeight = Math.floor(gifReader.height * (cols / gifReader.width) * 0.5);
+            const ratio = gifReader ? (gifReader.height / gifReader.width / 2.0) : 0.25;
+            const scaledHeight = Math.max(1, Math.round(cols * ratio));
             const ax = Math.floor(px * (cols / canvas.width));
             const ay = Math.floor(py * (scaledHeight / canvas.height));
             return { px, py, ax, ay, cols, scaledHeight };
@@ -1036,12 +1039,13 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
             lastGridX = pos.ax;
             lastGridY = pos.ay;
             
-            customPoints.push({ type: 'point', name: pointName, ax: pos.ax, ay: pos.ay, px: pos.px, py: pos.py });
+            const shapeType = document.getElementById('select-hitbox-shape').value || 'point';
+            customPoints.push({ type: shapeType, name: pointName, ax: pos.ax, ay: pos.ay, px: pos.px, py: pos.py });
             
             if (document.getElementById('chk-mirror').checked) {
                 const mirrorPx = canvas.width - pos.px;
                 const mirrorAx = (pos.cols - 1) - pos.ax;
-                customPoints.push({ type: 'point', name: pointName + "_sym", ax: mirrorAx, ay: pos.ay, px: mirrorPx, py: pos.py });
+                customPoints.push({ type: shapeType, name: pointName + "_sym", ax: mirrorAx, ay: pos.ay, px: mirrorPx, py: pos.py });
             }
             
             document.getElementById('point-name').value = '';
@@ -1215,6 +1219,8 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
             reader.readAsArrayBuffer(file);
         }
         
+        let cachedFrames = []; // Stores fully composited ImageData for each frame
+        
         function processGIF(buffer) {
             try {
                 gifReader = new GifReader(new Uint8Array(buffer));
@@ -1223,13 +1229,68 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
                 canvas.height = gifReader.height;
                 
                 frameDelays = [];
-                for(let i=0; i<numFrames; i++) {
-                    frameDelays.push(gifReader.frameInfo(i).delay * 10 || 100);
+                cachedFrames = [];
+
+                // Accurate GIF frame compositing matching GIF disposal specifications
+                const compCanvas = document.createElement('canvas');
+                compCanvas.width = gifReader.width;
+                compCanvas.height = gifReader.height;
+                const compCtx = compCanvas.getContext('2d', { willReadFrequently: true });
+                
+                const frameCanvas = document.createElement('canvas');
+                frameCanvas.width = gifReader.width;
+                frameCanvas.height = gifReader.height;
+                const frameCtx = frameCanvas.getContext('2d', { willReadFrequently: true });
+                
+                let prevSnapshot = null;
+
+                for (let i = 0; i < numFrames; i++) {
+                    const info = gifReader.frameInfo(i);
+                    frameDelays.push(info.delay * 10 || 100);
+
+                    // Disposal 2: Restore to background color / clear before drawing current delta
+                    // Disposal 3: Restore to previous snapshot
+                    if (i > 0) {
+                        const prevInfo = gifReader.frameInfo(i - 1);
+                        if (prevInfo.disposal === 2) {
+                            compCtx.clearRect(prevInfo.x, prevInfo.y, prevInfo.width, prevInfo.height);
+                        } else if (prevInfo.disposal === 3 && prevSnapshot) {
+                            compCtx.putImageData(prevSnapshot, 0, 0);
+                        }
+                    }
+
+                    if (info.disposal === 3) {
+                        prevSnapshot = compCtx.getImageData(0, 0, compCanvas.width, compCanvas.height);
+                    }
+
+                    // Decode delta frame
+                    const pixels = new Uint8ClampedArray(gifReader.width * gifReader.height * 4);
+                    gifReader.decodeAndBlitFrameRGBA(i, pixels);
+                    const deltaImageData = new ImageData(pixels, gifReader.width, gifReader.height);
+                    
+                    frameCtx.clearRect(0, 0, frameCanvas.width, frameCanvas.height);
+                    frameCtx.putImageData(deltaImageData, 0, 0);
+
+                    // Composite onto accumulated canvas
+                    compCtx.drawImage(frameCanvas, 0, 0);
+
+                    // Save 100% clean and fully composited frame
+                    cachedFrames.push(compCtx.getImageData(0, 0, compCanvas.width, compCanvas.height));
                 }
                 
                 startFrameIdx = 0; endFrameIdx = numFrames - 1;
                 scrubber.max = numFrames - 1; scrubber.value = 0; scrubber.disabled = false;
                 
+                const inputIdleFrame = document.getElementById('input-idle-frame');
+                const labelIdleHint = document.getElementById('label-idle-frame-hint');
+                if (inputIdleFrame) {
+                    inputIdleFrame.max = numFrames;
+                    inputIdleFrame.value = 1;
+                }
+                if (labelIdleHint) {
+                    labelIdleHint.innerText = `(1 to ${numFrames})`;
+                }
+
                 ['btn-set-start', 'btn-set-end', 'btn-reset-trim', 'btn-export', 'btn-export-points'].forEach(id => document.getElementById(id).disabled = false);
                 
                 updateTrimMarkers();
@@ -1240,12 +1301,9 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
         }
         
         function drawFrame(idx, skipOverlays = false) {
-            if(!gifReader) return;
-            const pixels = new Uint8ClampedArray(gifReader.width * gifReader.height * 4);
-            gifReader.decodeAndBlitFrameRGBA(idx, pixels);
-            const imageData = new ImageData(pixels, gifReader.width, gifReader.height);
+            if(!gifReader || !cachedFrames[idx]) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.putImageData(imageData, 0, 0);
+            ctx.putImageData(cachedFrames[idx], 0, 0);
             
             if (skipOverlays) return;
             
@@ -1253,32 +1311,60 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
             timeDisplay.innerText = (timeMs / 1000).toFixed(2) + "s";
             frameDisplay.innerText = `Frame ${idx + 1} / ${numFrames}`;
             
-            // Draw saved custom points & shapes overlay
+            // Draw polygon shape if multiple polygon points exist
+            const polyPoints = customPoints.filter(p => p.type === 'polygon');
+            if (polyPoints.length > 1) {
+                ctx.save();
+                ctx.fillStyle = 'rgba(255, 0, 85, 0.25)';
+                ctx.strokeStyle = '#ff0055';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([3, 2]);
+                ctx.beginPath();
+                ctx.moveTo(polyPoints[0].px, polyPoints[0].py);
+                for (let i = 1; i < polyPoints.length; i++) {
+                    ctx.lineTo(polyPoints[i].px, polyPoints[i].py);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Draw individual shapes and points
             customPoints.forEach(pt => {
                 ctx.save();
                 if (pt.type === 'rect') {
                     ctx.setLineDash([4, 3]);
-                    ctx.strokeStyle = '#ff0055';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(pt.px, pt.py, pt.pw, pt.ph);
-                    ctx.fillStyle = 'rgba(255, 0, 85, 0.2)';
+                    ctx.fillStyle = "rgba(255, 0, 85, 0.3)";
                     ctx.fillRect(pt.px, pt.py, pt.pw, pt.ph);
+                    ctx.strokeStyle = "#ff0055";
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeRect(pt.px, pt.py, pt.pw, pt.ph);
                 } else if (pt.type === 'circle') {
                     ctx.setLineDash([4, 3]);
-                    ctx.strokeStyle = '#00ffcc';
-                    ctx.lineWidth = 2;
+                    ctx.fillStyle = "rgba(0, 255, 204, 0.3)";
                     ctx.beginPath();
                     ctx.arc(pt.px, pt.py, pt.pr, 0, Math.PI * 2);
-                    ctx.stroke();
-                    ctx.fillStyle = 'rgba(0, 255, 204, 0.2)';
                     ctx.fill();
-                } else {
+                    ctx.strokeStyle = "#00ffcc";
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                } else if (pt.type === 'polygon') {
+                    ctx.fillStyle = "#ff0055";
                     ctx.beginPath();
                     ctx.arc(pt.px, pt.py, 3, 0, Math.PI * 2);
-                    ctx.fillStyle = '#ff00cc';
                     ctx.fill();
+                    ctx.strokeStyle = "#ffffff";
                     ctx.lineWidth = 1;
-                    ctx.strokeStyle = '#ffffff';
+                    ctx.stroke();
+                } else {
+                    // Single Point / Anchor
+                    ctx.fillStyle = "#ff00cc";
+                    ctx.beginPath();
+                    ctx.arc(pt.px, pt.py, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = "#ffffff";
+                    ctx.lineWidth = 1.5;
                     ctx.stroke();
                 }
                 ctx.restore();
@@ -1329,38 +1415,103 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
             
             let idleMode = document.getElementById('input-idle').value || "freeze";
             if (idleMode === "custom") {
-                idleMode = parseInt(document.getElementById('input-idle-frame').value) || 0;
+                const user1BasedFrame = parseInt(document.getElementById('input-idle-frame').value) || 1;
+                // Convert 1-based UI frame to 0-based engine frame index
+                idleMode = Math.max(0, user1BasedFrame - 1);
             }
             
             const scaledWidth = cols;
-            const scaledHeight = Math.max(1, Math.floor(gifReader.height * (cols / gifReader.width) * 0.5));
+            const ratio = gifReader.height / gifReader.width / 2.0;
+            const scaledHeight = Math.max(1, Math.round(cols * ratio));
             
             let scaleCanvas = document.createElement('canvas');
             scaleCanvas.width = scaledWidth; scaleCanvas.height = scaledHeight;
             let scaleCtx = scaleCanvas.getContext('2d', { willReadFrequently: true });
+            scaleCtx.imageSmoothingEnabled = true;
+            scaleCtx.imageSmoothingQuality = 'high';
             
             const asciiChars = "@%#*+=-:. ";
             let rawFrames = [];
             let minX = scaledWidth, minY = scaledHeight, maxX = -1, maxY = -1;
             
-            // First pass: render all frames to scaled canvas and determine cross-frame global bounding box (alpha >= 128)
-            for(let i = startFrameIdx; i <= endFrameIdx; i++) {
-                drawFrame(i, true);
-                scaleCtx.clearRect(0, 0, scaledWidth, scaledHeight);
-                scaleCtx.drawImage(canvas, 0, 0, scaledWidth, scaledHeight);
-                const imgData = scaleCtx.getImageData(0, 0, scaledWidth, scaledHeight).data;
+            // First pass: sample all frames directly from high-res cachedFrames using Feature-Preserving Block Resampling
+            const origW = gifReader.width;
+            const origH = gifReader.height;
+            
+            for (let i = startFrameIdx; i <= endFrameIdx; i++) {
+                const srcImg = cachedFrames[i];
+                const srcData = srcImg ? srcImg.data : null;
                 let frameMatrix = [];
-                for(let y=0; y<scaledHeight; y++) {
+                
+                for (let y = 0; y < scaledHeight; y++) {
                     let row = [];
-                    for(let x=0; x<scaledWidth; x++) {
-                        let idx = (y * scaledWidth + x) * 4;
-                        let r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2], a = imgData[idx+3];
-                        if (a >= 128) {
+                    const py0 = Math.floor((y / scaledHeight) * origH);
+                    const py1 = Math.max(py0 + 1, Math.floor(((y + 1) / scaledHeight) * origH));
+                    
+                    for (let x = 0; x < scaledWidth; x++) {
+                        const px0 = Math.floor((x / scaledWidth) * origW);
+                        const px1 = Math.max(px0 + 1, Math.floor(((x + 1) / scaledWidth) * origW));
+                        
+                        let totalWeight = 0;
+                        let sumR = 0, sumG = 0, sumB = 0, sumA = 0;
+                        let hasSalientColor = false;
+                        let salientR = 0, salientG = 0, salientB = 0, salientCount = 0;
+                        
+                        if (srcData) {
+                            for (let sy = py0; sy < py1; sy++) {
+                                for (let sx = px0; sx < px1; sx++) {
+                                    const sIdx = (sy * origW + sx) * 4;
+                                    const a = srcData[sIdx + 3];
+                                    if (a < 128) continue;
+                                    
+                                    const r = srcData[sIdx];
+                                    const g = srcData[sIdx + 1];
+                                    const b = srcData[sIdx + 2];
+                                    
+                                    // Detect high-contrast vivid feature (like yellow eye: high R+G relative to B or distinctly bright)
+                                    const isEyePixel = (r > 120 && g > 95 && (r - b) > 25);
+                                    if (isEyePixel) {
+                                        hasSalientColor = true;
+                                        salientR += r;
+                                        salientG += g;
+                                        salientB += b;
+                                        salientCount++;
+                                    }
+                                    
+                                    sumR += r;
+                                    sumG += g;
+                                    sumB += b;
+                                    sumA += a;
+                                    totalWeight++;
+                                }
+                            }
+                        }
+                        
+                        const salientRatio = totalWeight > 0 ? (salientCount / totalWeight) : 0;
+                        // For normal sizes (>=35 cols), preserve eye with density threshold; for micro sizes (<35 cols), require higher density so eyes don't cover 50% of the face
+                        const isSignificantEye = (cols >= 35) 
+                            ? ((salientCount >= 2 && salientRatio >= 0.20) || (salientCount >= 4))
+                            : (salientRatio >= 0.35 && salientCount >= 3);
+                        
+                        if (hasSalientColor && isSignificantEye) {
+                            // Prioritize the vivid feature (eye) only when significant density is present
+                            const avgR = Math.round(salientR / salientCount);
+                            const avgG = Math.round(salientG / salientCount);
+                            const avgB = Math.round(salientB / salientCount);
                             if (x < minX) minX = x;
                             if (x > maxX) maxX = x;
                             if (y < minY) minY = y;
                             if (y > maxY) maxY = y;
-                            row.push({ r, g, b, a });
+                            row.push({ r: avgR, g: avgG, b: avgB, a: 255 });
+                        } else if (totalWeight > 0 && (sumA / totalWeight) >= 128) {
+                            const avgR = Math.round(sumR / totalWeight);
+                            const avgG = Math.round(sumG / totalWeight);
+                            const avgB = Math.round(sumB / totalWeight);
+                            if (x < minX) minX = x;
+                            if (x > maxX) maxX = x;
+                            if (y < minY) minY = y;
+                            if (y > maxY) maxY = y;
+                            row.push({ r: avgR, g: avgG, b: avgB, a: 255 });
                         } else {
                             row.push(null);
                         }
@@ -1370,19 +1521,26 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
                 rawFrames.push(frameMatrix);
             }
             
-            // Fallback if image is completely empty
-            if (minX > maxX || minY > maxY) {
-                minX = 0; minY = 0; maxX = scaledWidth - 1; maxY = scaledHeight - 1;
-            }
-            
             const croppedWidth = maxX - minX + 1;
             const croppedHeight = maxY - minY + 1;
-            
-            // Adjust customPoints to match cropped canvas origin (subtract minX, minY)
+
+            // Map customPoints to cropped grid using existing minX/minY and scale factors
+            // gridX = px * scaledWidth / canvas.width  →  adj.ax = gridX - minX
             const adjustedPoints = customPoints.map(pt => {
                 let adj = { ...pt };
-                if (pt.ax !== undefined) adj.ax = Math.max(0, pt.ax - minX);
-                if (pt.ay !== undefined) adj.ay = Math.max(0, pt.ay - minY);
+                if (pt.type === 'rect') {
+                    adj.ax = Math.max(0, Math.round(pt.px * scaledWidth / canvas.width) - minX);
+                    adj.ay = Math.max(0, Math.round(pt.py * scaledHeight / canvas.height) - minY);
+                    adj.aw = Math.max(1, Math.round(pt.pw * scaledWidth / canvas.width));
+                    adj.ah = Math.max(1, Math.round(pt.ph * scaledHeight / canvas.height));
+                } else if (pt.type === 'circle') {
+                    adj.ax = Math.max(0, Math.round(pt.px * scaledWidth / canvas.width) - minX);
+                    adj.ay = Math.max(0, Math.round(pt.py * scaledHeight / canvas.height) - minY);
+                    adj.ar = Math.max(1, Math.round(pt.pr * scaledWidth / canvas.width));
+                } else {
+                    adj.ax = Math.max(0, Math.round(pt.px * scaledWidth / canvas.width) - minX);
+                    adj.ay = Math.max(0, Math.round(pt.py * scaledHeight / canvas.height) - minY);
+                }
                 return adj;
             });
             
