@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🐱 ASCILINE Mascots
+# ASCILINE Mascots
 
 <pre>
        _                        
@@ -20,7 +20,7 @@
       `*-*   `*-*  `*-*'
 </pre>
 
-**Bringing Spatial Awareness & Physics to HTML DOM Elements.**
+**Bringing Spatial Awareness and Kinematics to HTML DOM Elements.**
 
 [![Vanilla JS](https://img.shields.io/badge/Dependencies-Zero%20Vanilla%20JS-brightgreen)](https://github.com/YusufB5/ASCILINE-Mascots)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -30,134 +30,150 @@
 
 ---
 
-## 🌟 The Essence of ASCILINE
+## 1. Philosophy: The Living Interaction Layer of the Web
 
-Traditional web applications consist of three fundamental layers: **HTML** (Structure), **CSS** (Presentation), and **JavaScript** (Behavior/Events). In this traditional model, DOM elements (`<h1>`, `<p>`, `<button>`) are static, two-dimensional nodes unaware of spatial physics.
+Traditional web applications consist of three fundamental layers:
+* **HTML:** Structure and semantics.
+* **CSS:** Visual styling and responsive layout.
+* **JavaScript:** Behavior, logic, and event handling.
 
-**ASCILINE introduces a 4th Layer to the Web: The Physical & Spatial Interaction Layer.**
+In this standard model, DOM elements (`<h1>`, `<p>`, `<button>`) are static, two-dimensional surfaces oblivious to physical space and entity interactions.
 
-ASCILINE turns standard DOM text nodes and UI components into solid physical platforms. Any ASCII, color matrix, or sprite entity can fall, walk, land, bounce, and interact with the actual typography and layout of your website in real-time.
+**ASCILINE Mascots introduces The Living Interaction Layer to the Web.**
+
+The engine turns standard text nodes and UI components into solid physical collision platforms using non-destructive browser APIs (`Range API`) without injecting wrapper tags or altering page SEO. Mascots patrol headings, jump across buttons, fall with real-time gravity, bounce off boundaries, and can be tossed via pointer momentum.
 
 ---
 
-## 🏗️ Technical Architecture
+## 2. Technical Architecture
 
-ASCILINE is built with a modular, 4-tier object-oriented architecture designed for maximum performance, 60fps physics, and zero external dependencies.
+ASCILINE Mascot Engine is built on a modular 4-tier object-oriented architecture designed for 60fps execution and zero external runtime dependencies.
 
 ```text
-┌────────────────────────────────────────────────────────────────────────┐
-│                      4. Hitbox & Overlay Layer                         │
-│       (SVG Polygon / Point / Rect / Circle Overlay & Alignment)        │
-├────────────────────────────────────────────────────────────────────────┤
-│                 3. Walking & Kinematics State Machine                  │
-│       (Walk, Idle Modes, Auto-Facing Flip, Friction & Gravity)         │
-├────────────────────────────────────────────────────────────────────────┤
-│                     2. Sprite & Rendering Engine                       │
-│     (Matrix Serialization, HTML Span Formatter, Frame Caching)         │
-├────────────────────────────────────────────────────────────────────────┤
-│                     1. Base Physics Engine & Spatial DOM               │
-│    (Range API Platform Scanning, BoundingBox Culling, Drag Dynamics)   │
-└────────────────────────────────────────────────────────────────────────┘
++------------------------------------------------------------------------+
+|                      4. Hitbox & Overlay Layer                         |
+|   (SVG Closed Polygon / Multi-Point / Rect / Circle Adaptive Overlay)  |
++------------------------------------------------------------------------+
+|                 3. Kinematics & Locomotion Behaviors                   |
+|   (Walker AI, Flyer, Jumper, Runner, Swimmer, Bouncer, Bomb, Spider)   |
++------------------------------------------------------------------------+
+|                     2. Sprite & Rendering Engine                       |
+| (Feature-Preserving Block Resampling, Frame Compositing, Span Cache)   |
++------------------------------------------------------------------------+
+|                  1. Core Engine & Spatial DOM Kinematics               |
+| (Range API Platform Sensing, Dynamic Cache Culling, Momentum Drag)     |
++------------------------------------------------------------------------+
 ```
 
 ### Layer 1: Base Physics Engine (`lib/core/mascot.js`)
-* **Kinematic Core**: Implements real-time gravity, velocity vectors (`vx`, `vy`), bouncing, ground friction, and dynamic toss throwing based on pointer drag history.
-* **Spatial DOM Sensing**: Uses the native browser **Range API** and `getClientRects()` to map non-destructive text nodes into solid collision platforms without injecting extra DOM wrappers.
-* **Universal Hitbox System**: Hosts the base `setCustomHitboxes()` and `renderHitboxOverlay()` methods, enabling any mascot subclass to possess custom spatial hitboxes.
+* **Spatial DOM Sensing:** Uses native `document.createRange()` and `getClientRects()` to map non-destructive text nodes into solid collision platforms.
+* **Dynamic Platform Caching:** Maintains `cachedStaticPlatforms` and `cachedDynamicElements` arrays with automatic `window.resize` recalculation.
+* **Momentum Kinematics:** Tracks pointer movement in `dragHistory` (last 5 points) to compute dynamic release velocity vectors (`vx`, `vy`).
+* **Accessibility Shield:** Holding `Alt` or pressing `Ctrl+A` activates `mascot-select-mode` to preserve underlying text selection.
+* **Dual Budget Shield:** Prevents performance degradation via configurable credit and count limits (`ASCILINE_MAX_CREDITS`, `ASCILINE_MAX_COUNT`).
 
-### Layer 2: Sprite & Rendering Engine (`lib/core/sprite.js`)
-* **Matrix Format Processing**: Parses 2D character arrays or HTML color matrix frames exported from GIF Studio.
-* **HTML Frame Caching**: Converts matrix rows into efficient HTML `<span>` blocks with inline colors, caching processed HTML strings to minimize garbage collection (GC) pauses.
+### Layer 2: Sprite & Matrix Renderer (`lib/core/sprite.js`)
+* **Matrix Format Processing:** Parses 2D character arrays and HTML color matrix frames exported from GIF Studio.
+* **Frame Compositing:** Pre-composites GIF frames to prevent ghosting artifacts across frame disposal states.
+* **Feature-Preserving Resampling:** Prioritizes micro-details (e.g., character eyes) during grid downscaling.
+* **HTML Frame Caching:** Converts matrix rows into efficient HTML `<span>` blocks with inline colors, caching processed HTML strings to minimize garbage collection pauses.
 
-### Layer 3: Walking Kinematics (`lib/physics/pure/walking_sprite.js`)
-* **State Machine**: Handles animation state transitions (Walk, Idle Freeze, Idle Play, Fall, Drag).
-* **Directional Flip Sync**: Automatically syncs character sprite orientation (`scaleX(-1)`) and SVG hitbox overlays when the mascot changes direction.
+### Layer 3: Locomotion Spectrum
+* **Walking AI (`WalkingSpriteMascot`):** Smooth acceleration, platform edge awareness, turn states, and step speed synchronization.
+* **Flight (`FlyingMascot`):** Sinusoidal altitude drift, boundary reflection, and dynamic banking.
+* **Jumping (`JumperPhysics`):** Charge squish and ballistic parabolic arcs.
+* **Running (`RunnerMascot`):** High-speed sprints with extended stopping friction.
+* **Swimming (`SwimmerMascot`):** Buoyancy stabilization and water surface detection.
+* **Bouncing (`BouncerMascot`):** High kinetic restitution rebounds.
+* **Combat & Action (`BombPhysics`):** Velocity-activated fuse timers and DOM shattering (`DomPhysicsObject`).
+* **Procedural (`SpiderMascot`):** Real-time procedural ASCII web lines and trigonometric crawling physics.
 
 ### Layer 4: Hitbox Overlay System
-* **Dynamic SVG Layer**: Renders high-precision custom hitboxes over the mascot.
-* **Supported Hitbox Types**:
-  - `point`: Connected polygon boundary with glowing anchor dots.
-  - `rect`: Dashed rectangle boundary.
-  - `circle`: Dashed circular boundary.
-
-## 🛠️ Studio Editor & CLI Tools (`tools/`)
-
-ASCILINE provides both an in-browser GUI Studio and a suite of Python CLI conversion tools:
-
-* **GIF Studio GUI (`tools/gif_studio.html`)**: Standalone browser editor with live canvas preview, color quantization, crop controls, and visual hitbox designer.
-* **CLI Converters (`tools/gif2color.py` & `tools/gif2mascot.py`)**: Command-line converters to turn GIFs into colored HTML matrices or text ASCII JSON files.
-* **GIF Utilities (`tools/gif_inspector.py` & `tools/gif_trimmer.py`)**: CLI tools to inspect frame delays, dimensions, and trim frame sequences.
-* **Studio Builder (`tools/build_studio.py`)**: Tool for bundling and building standalone Studio assets.
+* Renders real-time SVG overlays (`<polygon>`, `<rect>`, `<circle>`) that mirror automatically on direction change (`scaleX(-1)`).
 
 ---
 
-## 🚀 Quick Start
+## 3. Quick Start
 
-### 1. Include ASCILINE Engine Scripts
+### 1. Include Engine Scripts
 
 ```html
-<!-- Core Engine (always required) -->
+<!-- Core Engine -->
 <script src="lib/core/mascot.js"></script>
 <script src="lib/core/sprite.js"></script>
 
-<!-- Pick a physics behavior (e.g. motion/walking_sprite.js) -->
+<!-- Locomotion Behaviors -->
 <script src="lib/physics/pure/motion/walking_sprite.js"></script>
+<script src="lib/physics/pure/motion/flyer.js"></script>
 ```
 
-### 2. Load Mascot Animation Data
-
-```html
-<!-- Load exported ASCII animation data -->
-<script src="example/assets/secondcat_data.js"></script>
-```
-
-### 3. Initialize Mascot Instance
+### 2. Configure and Spawn Mascots
 
 ```javascript
-// Configure target platform elements (Optional)
+// 1. Configure asset directory
+ASCILINE.baseAssetUrl = 'assets/mascots/';
+
+// 2. Configure collision platforms (Optional)
 window.ASCILINE_CONFIG = {
     platformSelectors: 'h1, h2, h3, p, button, .platform-card'
 };
 
-// Spawn a walking mascot with custom JSON data
-const mascot = new WalkingSpriteMascot(window.SECOND_CAT_DATA, 80, 50, 15);
-
-// Add to global physics loop
-ASCILINE.getMascots().push(mascot);
+// 3. Spawn registered mascots
+ASCILINE.spawn('walker_cat');
+ASCILINE.spawn('flying_cat');
 ```
 
 ---
 
-## 📂 Repository & Architecture Structure
+## 4. Creating Custom Mascots
+
+### Method A: Creating Sprite Mascots (via GIF Studio)
+
+1. Open `tools/gif_studio.html` in any browser.
+2. Drag and drop your animated GIF.
+3. Configure column resolution (e.g., `80` cols) and Idle frame settings.
+4. Select **Polygon Area** and click character outlines to define closed hitboxes.
+5. Click **Export Mascot JSON**.
+6. Register and spawn in your application:
+
+```javascript
+ASCILINE.registerMascot('my_mascot', {
+    get_class: () => WalkingSpriteMascot,
+    args: ['my_mascot_coloranim.json', 80, 50, 15, 2]
+});
+
+ASCILINE.spawn('my_mascot');
+```
+
+### Method B: Writing Custom Physics Behaviors
+
+To implement novel physics (e.g., floating ghosts, wall climbing, gravity inversion), read the developer guide:
+
+👉 [**Custom Physics Developer Guide (docs/CUSTOM_PHYSICS_GUIDE.md)**](docs/CUSTOM_PHYSICS_GUIDE.md)
+
+---
+
+## 5. Repository Structure
 
 ```text
 ASCILINE-Mascots/
 ├── lib/
-│   ├── core/                       # Base Parent Engine Classes (always load first)
-│   │   ├── mascot.js               # Kinematic engine, Spatial DOM sensing, SVG Hitbox system
-│   │   └── sprite.js               # Matrix renderer, HTML span formatter, Frame caching
-│   │
-│   ├── physics/                    # Mascot Physics Behaviors
-│   │   ├── pure/                   # Directly extend Core classes (Mascot / SpriteMascot)
-│   │   │   ├── motion/             # Locomotion behaviors (walking_sprite, runner, flyer, swimmer, spider, etc.)
-│   │   │   ├── action/             # Interactive & combat (bomb_physics, sword_physics, pokeball, hand, launcher)
-│   │   │   └── helpers/            # Shared particle utilities (physics_text.js / DomPhysicsObject)
-│   │   │
-│   │   └── derived/                # Extend another pure physics class
-│   │       └── blackhole_physics.js # Gravitational pull zone (extends StaticMascot)
-│   │
-│   ├── interactive/                # Fixed environmental zones (sword_zone.js, water_zone.js)
-│   │
-│   └── effects/                    # Visual & Audio Effect Managers
-│       └── audio/
-│           └── audio_manager.js    # Global Audio & Event Bridge
-│
-├── tools/                          # GIF Studio GUI & Python CLI Tools
-└── example/                        # Live interactive demo showcase & assets
+│   ├── core/                       # Core engine classes (mascot.js, sprite.js)
+│   ├── physics/
+│   │   ├── pure/
+│   │   │   ├── motion/             # Locomotion (walking_sprite, flyer, jumper, runner, spider...)
+│   │   │   ├── action/             # Interactive & combat (bomb_physics, sword_physics, pokeball...)
+│   │   │   └── helpers/            # Particle & DOM shatter utilities (physics_text.js)
+│   │   └── derived/                # Extended physics zones (blackhole_physics.js)
+│   ├── interactive/                # Environmental trigger zones (sword_zone.js)
+│   └── effects/                    # Audio & visual effect bridges
+├── tools/                          # GIF Studio GUI and Python CLI tools
+├── docs/                           # Developer guides (CUSTOM_PHYSICS_GUIDE.md)
+└── example/                        # Interactive demo sandbox & assets
 ```
 
 ---
 
-## 📜 License
+## 6. License
 
 Distributed under the **MIT License**. See `LICENSE` for details.
