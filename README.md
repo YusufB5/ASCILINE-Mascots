@@ -22,9 +22,11 @@
 
 **Bringing Spatial Awareness and Kinematics to HTML DOM Elements.**
 
-[![Vanilla JS](https://img.shields.io/badge/Dependencies-Zero%20Vanilla%20JS-brightgreen)](https://github.com/YusufB5/ASCILINE-Mascots)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Architecture](https://img.shields.io/badge/Architecture-Spatial%20DOM%20Kinematics-blue)](https://github.com/YusufB5/ASCILINE-Mascots)
+<p align="center">
+  <a href="https://github.com/YusufB5/ASCILINE-Mascots"><img src="https://img.shields.io/badge/Dependencies-Zero%20Vanilla%20JS-brightgreen" alt="Vanilla JS" /></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
+  <a href="https://github.com/YusufB5/ASCILINE-Mascots"><img src="https://img.shields.io/badge/Architecture-Spatial%20DOM%20Kinematics-blue" alt="Architecture" /></a>
+</p>
 
 </div>
 
@@ -95,17 +97,14 @@ ASCILINE Mascot Engine is built on a modular 4-tier object-oriented architecture
 
 ## 3. Quick Start
 
-### 1. Include Engine Scripts
+### 1. Include the Engine (Single-File Bundle)
 
 ```html
-<!-- Core Engine -->
-<script src="lib/core/mascot.js"></script>
-<script src="lib/core/sprite.js"></script>
-
-<!-- Locomotion Behaviors -->
-<script src="lib/physics/pure/motion/walking_sprite.js"></script>
-<script src="lib/physics/pure/motion/flyer.js"></script>
+<!-- Include all core engines & physics behaviors in one line -->
+<script src="dist/asciline.bundle.min.js"></script>
 ```
+
+*(Alternatively, include individual modular scripts from `lib/core/` and `lib/physics/`).*
 
 ### 2. Configure and Spawn Mascots
 

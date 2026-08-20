@@ -1,0 +1,32 @@
+{
+  "name": "asciline-mascots",
+  "version": "1.0.0",
+  "description": "A lightweight, zero-dependency spatial physics engine that brings interactive ASCII and sprite desktop pets to HTML DOM elements.",
+  "main": "dist/asciline.bundle.js",
+  "unpkg": "dist/asciline.bundle.min.js",
+  "jsdelivr": "dist/asciline.bundle.min.js",
+  "scripts": {
+    "build": "node tools/bundle.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YusubB5/ASCILINE-Mascots.git"
+  },
+  "keywords": [
+    "ascii",
+    "mascots",
+    "physics-engine",
+    "dom-physics",
+    "spatial-awareness",
+    "vanilla-js",
+    "zero-dependency",
+    "desktop-pet",
+    "interactive"
+  ],
+  "author": "YusufB5",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/YusufB5/ASCILINE-Mascots/issues"
+  },
+  "homepage": "https://github.com/YusufB5/ASCILINE-Mascots#readme"
+}
