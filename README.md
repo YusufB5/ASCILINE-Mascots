@@ -123,60 +123,65 @@ ASCILINE.spawn('flying_cat');
 
 ---
 
-## 4. Tooling & Custom Mascot Creation
+## 4. Asset Conversion & Tooling
 
-ASCILINE provides both a browser-based visual studio and a suite of Python command-line conversion tools.
+ASCILINE offers two complementary conversion workflows depending on your preferred artistic rendering style and pipeline needs:
 
-### Method A: Browser-Based GIF Studio (`tools/gif_studio.html`)
+### Option 1: Browser-Based GIF Studio (`tools/gif_studio.html`) — Visual & Detail-Preserving
 
-An all-in-one browser tool for importing, optimizing, and designing hitboxes on animated GIFs:
+The in-browser studio provides interactive visual editing with a focus on **Block-Art Fidelity**:
 
-1. **Import:** Open `tools/gif_studio.html` and drag & drop any animated GIF.
-2. **Resolution & Sampling:** Adjust the **Columns (Resolution)** slider (e.g., `80` cols). The engine uses **Feature-Preserving Smart Resampling** to protect micro-details like character eyes and pupil contrast.
-3. **Disposal & Idle Modes:** Configure GIF frame disposal methods to eliminate ghosting artifacts and select idle behaviors (`Freeze Frame`, `Play Loop`).
-4. **Visual Hitbox Designer:** Click **Polygon Area** to define custom closed boundary points with real-time SVG preview.
-5. **Export:** Click **Export Mascot JSON** to download the optimized color-matrix JSON file.
+* **Feature-Preserving Smart Resampling:** Retains high-contrast micro-details (e.g., character eyes, pupils) even at low resolutions (20–40 cols) without color bleed.
+* **Accurate Frame Disposal Compositing:** Pre-composites GIF delta frames to eliminate ghosting artifacts.
+* **Visual Hitbox Designer:** Click **Polygon Area** on the live canvas to draw precise SVG closed boundary hitboxes.
+* **Workflow:**
+  1. Open `tools/gif_studio.html` and drop your animated GIF.
+  2. Adjust **Columns (Resolution)**, FPS, and Idle behavior.
+  3. Draw custom polygon hitboxes directly on the character canvas.
+  4. Click **Export Mascot JSON** and register the asset in your app:
 
-```javascript
-// Register your exported mascot in your application
-ASCILINE.registerMascot('my_mascot', {
-    get_class: () => WalkingSpriteMascot,
-    args: ['my_mascot_coloranim.json', 80, 50, 15, 2]
-});
+  ```javascript
+  ASCILINE.registerMascot('my_mascot', {
+      get_class: () => WalkingSpriteMascot,
+      args: ['my_mascot_coloranim.json', 80, 50, 15, 2]
+  });
 
-ASCILINE.spawn('my_mascot');
-```
+  ASCILINE.spawn('my_mascot');
+  ```
 
-### Method B: Python CLI Conversion Pipeline (`tools/`)
+### Option 2: Python CLI Conversion Pipeline (`tools/`) — Headless & Retro Monospace
 
-For headless automated pipelines, batch conversions, or server-side workflows:
+For terminal lovers, CI/CD automated pipelines, and batch conversions:
 
-* **Color Matrix Converter (`tools/gif2color.py`):** Converts animated GIFs into colored HTML span matrix JSON files with aspect-ratio preservation.
+* **Color Matrix Converter (`tools/gif2color.py`):** Converts GIFs into colored HTML span matrix JSON files with Lanczos downsampling.
   ```bash
   python tools/gif2color.py input.gif --cols 80 --fps 15 -o mascot_coloranim.json
   ```
-* **Pure Text ASCII Converter (`tools/gif2mascot.py`):** Converts GIFs into pure monochrome ASCII text matrix JSON files.
+* **Pure Text ASCII Converter (`tools/gif2text.py`):** Generates lightweight monochrome ASCII text matrix JSON files for classic retro terminals.
   ```bash
-  python tools/gif2mascot.py input.gif --cols 60 --fps 12 -o mascot_textanim.json
+  python tools/gif2text.py input.gif --cols 60 --fps 12 -o mascot_textanim.json
   ```
-* **GIF Inspector & Trimmer (`tools/gif_inspector.py` & `tools/gif_trimmer.py`):** Analyze frame delays, dimensions, color palettes, and trim frame sequences.
+* **GIF Inspector & Trimmer (`tools/gif_inspector.py` & `tools/gif_trimmer.py`):** Inspect frame delays, color palettes, and trim frame sequences.
   ```bash
   python tools/gif_inspector.py input.gif
   python tools/gif_trimmer.py input.gif --start 0 --end 10 -o trimmed.gif
   ```
 
-### Method C: Developing Custom Physics Behaviors
+---
 
-To create entirely new kinematic behaviors (e.g., wall climbing, gravitational orbits, teleportation), read the developer guide:
+## 5. Developing Custom Physics Behaviors
 
-👉 [**Custom Physics Developer Guide (docs/CUSTOM_PHYSICS_GUIDE.md)**](docs/CUSTOM_PHYSICS_GUIDE.md)
+ASCILINE Mascot Engine allows developers to create completely custom locomotion, gravity, and action behaviors (e.g., wall climbing, gravitational orbits, teleportation) by extending the base classes.
+
+👉 Read the full developer tutorial: [**Custom Physics Developer Guide (docs/CUSTOM_PHYSICS_GUIDE.md)**](docs/CUSTOM_PHYSICS_GUIDE.md)
 
 ---
 
-## 5. Repository Structure
+## 6. Repository Structure
 
 ```text
 ASCILINE-Mascots/
+├── dist/                           # Single-file production bundles (asciline.bundle.min.js)
 ├── lib/
 │   ├── core/                       # Core engine classes (mascot.js, sprite.js)
 │   ├── physics/
@@ -194,6 +199,6 @@ ASCILINE-Mascots/
 
 ---
 
-## 6. License
+## 7. License
 
 Distributed under the **MIT License**. See `LICENSE` for details.
