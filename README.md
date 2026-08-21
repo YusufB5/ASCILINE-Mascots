@@ -158,6 +158,10 @@ ASCILINE offers two complementary conversion workflows depending on your preferr
 
 ### Option 1: Browser-Based GIF Studio (`tools/gif_studio.html`) — Visual & Detail-Preserving
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/YusufB5/ASCILINE-Mascots/main/docs/images/gif_studio_preview.png" alt="ASCILINE GIF Studio Interface" width="850" />
+</p>
+
 The in-browser studio provides interactive visual editing with a focus on **Block-Art Fidelity**:
 
 * **Feature-Preserving Smart Resampling:** Retains high-contrast micro-details (e.g., character eyes, pupils) even at low resolutions (20–40 cols) without color bleed.
