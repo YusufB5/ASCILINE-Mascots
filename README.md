@@ -28,6 +28,10 @@
   <a href="https://github.com/YusufB5/ASCILINE-Mascots"><img src="https://img.shields.io/badge/Architecture-Spatial%20DOM%20Kinematics-blue" alt="Architecture" /></a>
 </p>
 
+<p align="center">
+  <a href="https://yusufb5.github.io/ASCILINE-Mascots/example/"><strong>🎮 Try Live Interactive Demo</strong></a>
+</p>
+
 </div>
 
 ---
@@ -56,8 +60,8 @@ ASCILINE Mascot Engine is built on a modular 4-tier object-oriented architecture
 |                      4. Hitbox & Overlay Layer                         |
 |   (SVG Closed Polygon / Multi-Point / Rect / Circle Adaptive Overlay)  |
 +------------------------------------------------------------------------+
-|                 3. Kinematics & Locomotion Behaviors                   |
-|   (Walker AI, Flyer, Jumper, Runner, Swimmer, Bouncer, Bomb, Spider)   |
+|                 3. Kinematics & Locomotion State Machine               |
+|   (Modular Lifecycle, State Machine, Organic Acceleration & Velocity)  |
 +------------------------------------------------------------------------+
 |                     2. Sprite & Rendering Engine                       |
 | (Feature-Preserving Block Resampling, Frame Compositing, Span Cache)   |
@@ -80,15 +84,10 @@ ASCILINE Mascot Engine is built on a modular 4-tier object-oriented architecture
 * **Feature-Preserving Resampling:** Prioritizes micro-details (e.g., character eyes) during grid downscaling.
 * **HTML Frame Caching:** Converts matrix rows into efficient HTML `<span>` blocks with inline colors, caching processed HTML strings to minimize garbage collection pauses.
 
-### Layer 3: Locomotion Spectrum
-* **Walking AI (`WalkingSpriteMascot`):** Smooth acceleration, platform edge awareness, turn states, and step speed synchronization.
-* **Flight (`FlyingMascot`):** Sinusoidal altitude drift, boundary reflection, and dynamic banking.
-* **Jumping (`JumperPhysics`):** Charge squish and ballistic parabolic arcs.
-* **Running (`RunnerMascot`):** High-speed sprints with extended stopping friction.
-* **Swimming (`SwimmerMascot`):** Buoyancy stabilization and water surface detection.
-* **Bouncing (`BouncerMascot`):** High kinetic restitution rebounds.
-* **Combat & Action (`BombPhysics`):** Velocity-activated fuse timers and DOM shattering (`DomPhysicsObject`).
-* **Procedural (`SpiderMascot`):** Real-time procedural ASCII web lines and trigonometric crawling physics.
+### Layer 3: Kinematics & Locomotion State Machine
+* **Modular Physics Lifecycle (`tick(dt)`):** Provides a standardized, delta-time aware loop that subclasses override to implement custom behaviors.
+* **State Machine Transitions:** Manages fluid transitions across `IDLE`, `WALK`, `FALL`, `DRAG`, and action states with organic acceleration and friction.
+* **Directional Synchronization:** Automatically aligns horizontal velocity vectors (`vx`), orientation state (`facing`), sprite transformations (`scaleX(-1)`), and attached SVG overlays.
 
 ### Layer 4: Hitbox Overlay System
 * Renders real-time SVG overlays (`<polygon>`, `<rect>`, `<circle>`) that mirror automatically on direction change (`scaleX(-1)`).
