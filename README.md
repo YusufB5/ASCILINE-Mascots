@@ -149,11 +149,14 @@ ASCILINE offers two complementary conversion workflows depending on your preferr
 The in-browser studio provides interactive visual editing with a focus on **Block-Art Fidelity**:
 
 * **Feature-Preserving Smart Resampling:** Retains high-contrast micro-details (e.g., character eyes, pupils) even at low resolutions (20–40 cols) without color bleed.
-* **Accurate Frame Disposal Compositing:** Pre-composites GIF delta frames to eliminate ghosting artifacts.
+* **Temporal Subsampling & Frame Rate Optimization:** 
+  * **Asset FPS (The Data Shell):** Controls frame subsampling and payload compression during compilation (e.g., downsampling a 60-frame GIF to 15 FPS to eliminate redundant frames and reduce JSON payload size by up to 75%).
+  * **Runtime Engine (The Playback Driver):** Dynamically scales the playback velocity of this frame shell at 60fps according to engine delta-time (`dt`) and character locomotion momentum (`vx / walkSpeed`).
+* **Accurate Frame Disposal Compositing:** Pre-composites GIF delta frames to eliminate ghosting artifacts across disposal modes.
 * **Visual Hitbox Designer:** Click **Polygon Area** on the live canvas to draw precise SVG closed boundary hitboxes.
 * **Workflow:**
   1. Open `tools/gif_studio.html` and drop your animated GIF.
-  2. Adjust **Columns (Resolution)**, FPS, and Idle behavior.
+  2. Adjust **Columns (Resolution)**, **Target FPS** (subsampling rate), and Idle behavior.
   3. Draw custom polygon hitboxes directly on the character canvas.
   4. Click **Export Mascot JSON** and register the asset in your app:
 
@@ -186,11 +189,66 @@ For terminal lovers, CI/CD automated pipelines, and batch conversions:
 
 ---
 
-## 5. Developing Custom Physics Behaviors
+## 5. Custom Mascots & Physics: 2 Practical Scenarios
 
-ASCILINE Mascot Engine allows developers to create completely custom locomotion, gravity, and action behaviors (e.g., wall climbing, gravitational orbits, teleportation) by extending the base classes.
+ASCILINE Mascot Engine is designed to be fully modular and extensible. Whether you just want to load your own custom animated JSON mascot with existing physics, or build completely custom locomotion mechanics from scratch, use `ASCILINE.registerMascot()`:
 
-👉 Read the full developer tutorial: [**Custom Physics Developer Guide (docs/CUSTOM_PHYSICS_GUIDE.md)**](docs/CUSTOM_PHYSICS_GUIDE.md)
+### 🧩 Scenario 1: Custom Mascot Asset (JSON) + Built-in Physics (`ASCILINE.Physics.*`)
+*You generated a new animation JSON (e.g. `my_cat.json` via GIF Studio) and want to use one of ASCILINE's built-in physics modules (Walker, Flyer, Static, Jumper, etc.):*
+
+```javascript
+// 1. Register your custom mascot using any built-in physics module
+ASCILINE.registerMascot('my_walker_cat', {
+    get_class: () => ASCILINE.Physics.Walker,
+    args: ['assets/my_cat.json', 60, 30, 15] // jsonUrl, width, height, fps
+});
+
+// 2. Spawn anywhere seamlessly!
+ASCILINE.spawn('my_walker_cat');
+```
+
+> **💡 Available Physics Modules:** All physics classes in `lib/physics/` (e.g. `Walker`, `Flyer`, `Static`, `Jumper`, `Runner`, `Bouncer`, `Swimmer`, `Bomb`, `Sword`, `BlackHole`, `Hand`, `Pokeball`) are automatically available under `ASCILINE.Physics`. You can inspect all loaded physics modules in the browser console:
+> ```javascript
+> console.log(ASCILINE.Physics);
+> ```
+
+---
+
+### 🚀 Scenario 2: Full Custom (Custom JSON + Custom Physics Class)
+*You want to write brand-new unique locomotion or game physics behavior (e.g. a rocket that continuously flies upwards):*
+
+```javascript
+// 1. Define your custom physics class extending SpriteMascot
+class RocketPhysics extends ASCILINE.SpriteMascot {
+    constructor(jsonUrl, width = 80, height = 120, fps = 20) {
+        super(jsonUrl, width, height, fps, 0, null);
+        this.gravity = 0; // Disable falling
+    }
+
+    tick(dt = 1) {
+        if (!this.isLoaded) return;
+        super.tick(dt);
+
+        // Custom propulsion behavior: fly upward continuously
+        if (!this.isDragging) {
+            this.y -= 4 * dt;
+            if (this.y < -this.height) this.y = window.innerHeight; // Screen wrap
+        }
+        this.updateDOMPosition();
+    }
+}
+
+// 2. Register your custom class into the engine
+ASCILINE.registerMascot('space_rocket', {
+    get_class: () => RocketPhysics,
+    args: ['assets/rocket.json', 80, 120, 20]
+});
+
+// 3. Spawn like any native mascot!
+ASCILINE.spawn('space_rocket');
+```
+
+👉 Read the in-depth developer guide: [**Custom Physics Developer Guide (docs/CUSTOM_PHYSICS_GUIDE.md)**](docs/CUSTOM_PHYSICS_GUIDE.md)
 
 ---
 

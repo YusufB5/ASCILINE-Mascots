@@ -885,6 +885,11 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
                 </select>
             </div>
             <div class="control-group">
+                <label>Target FPS:</label>
+                <input type="number" id="input-fps" value="15" min="1" max="60" style="width: 70px; padding: 5px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">
+                <span id="label-fps-detected" style="color: #00d2ff; font-size: 11px; margin-left: 5px;">(Original: --)</span>
+            </div>
+            <div class="control-group">
                 <label>Idle Mode:</label>
                 <select id="input-idle" style="flex:1; padding: 5px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">
                     <option value="freeze">Freeze on stop (Default)</option>
@@ -1281,6 +1286,15 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
                 startFrameIdx = 0; endFrameIdx = numFrames - 1;
                 scrubber.max = numFrames - 1; scrubber.value = 0; scrubber.disabled = false;
                 
+                // Calculate detected native FPS from frame delays
+                const avgDelay = frameDelays.length > 0 ? (frameDelays.reduce((a, b) => a + b, 0) / frameDelays.length) : 100;
+                const detectedFps = Math.max(1, Math.min(60, Math.round(1000 / avgDelay)));
+                
+                const inputFps = document.getElementById('input-fps');
+                const labelFpsDetected = document.getElementById('label-fps-detected');
+                if (inputFps) inputFps.value = detectedFps;
+                if (labelFpsDetected) labelFpsDetected.innerText = `(Original: ~${detectedFps} FPS)`;
+
                 const inputIdleFrame = document.getElementById('input-idle-frame');
                 const labelIdleHint = document.getElementById('label-idle-frame-hint');
                 if (inputIdleFrame) {
@@ -1413,6 +1427,10 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
             const exportType = document.getElementById('input-export-type').value;
             const facing = document.getElementById('input-facing').value || "right";
             
+            const avgDelay = frameDelays.length > 0 ? (frameDelays.reduce((a, b) => a + b, 0) / frameDelays.length) : 100;
+            const detectedFps = Math.max(1, Math.min(60, Math.round(1000 / avgDelay)));
+            const targetFps = parseInt(document.getElementById('input-fps').value) || detectedFps;
+
             let idleMode = document.getElementById('input-idle').value || "freeze";
             if (idleMode === "custom") {
                 const user1BasedFrame = parseInt(document.getElementById('input-idle-frame').value) || 1;
@@ -1434,11 +1452,27 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
             let rawFrames = [];
             let minX = scaledWidth, minY = scaledHeight, maxX = -1, maxY = -1;
             
-            // First pass: sample all frames directly from high-res cachedFrames using Feature-Preserving Block Resampling
+            // Determine frame indices to sample based on target FPS
+            let framesToSample = [];
+            if (detectedFps > targetFps && targetFps > 0) {
+                const step = detectedFps / targetFps;
+                for (let t = startFrameIdx; t <= endFrameIdx; t += step) {
+                    const sampledIdx = Math.min(endFrameIdx, Math.round(t));
+                    if (framesToSample.length === 0 || framesToSample[framesToSample.length - 1] !== sampledIdx) {
+                        framesToSample.push(sampledIdx);
+                    }
+                }
+            } else {
+                for (let i = startFrameIdx; i <= endFrameIdx; i++) {
+                    framesToSample.push(i);
+                }
+            }
+
+            // First pass: sample frames directly from high-res cachedFrames using Feature-Preserving Block Resampling
             const origW = gifReader.width;
             const origH = gifReader.height;
             
-            for (let i = startFrameIdx; i <= endFrameIdx; i++) {
+            for (const i of framesToSample) {
                 const srcImg = cachedFrames[i];
                 const srcData = srcImg ? srcImg.data : null;
                 let frameMatrix = [];
@@ -1608,6 +1642,7 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
             let exportData = {
                 name: originalFileName,
                 width: cols,
+                fps: targetFps,
                 frameCount: exportedFrames.length,
                 isColored: exportType === "color",
                 facing: facing,
@@ -1615,6 +1650,7 @@ try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}
                 metadata: {
                     width: croppedWidth,
                     height: croppedHeight,
+                    fps: targetFps,
                     facing: facing,
                     idleMode: idleMode,
                     type: exportType,

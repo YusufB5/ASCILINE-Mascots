@@ -168,11 +168,20 @@ class HoveringGhostMascot extends SpriteMascot {
 
 ## 6. Registering and Spawning Your Custom Physics
 
-Register your new class into `MASCOT_REGISTRY` dynamically:
+Register your new class into `ASCILINE.Physics` and `MASCOT_REGISTRY` dynamically:
+
+### Step 1: Attach to `ASCILINE.Physics` (Best Practice)
+At the bottom of your custom physics file, register the class onto the `ASCILINE.Physics` namespace so it is globally discoverable:
 
 ```javascript
+(window.ASCILINE = window.ASCILINE || {}).Physics = window.ASCILINE.Physics || {};
+window.ASCILINE.Physics.Ghost = HoveringGhostMascot;
+```
+
+### Step 2: Register into `MASCOT_REGISTRY`
+```javascript
 ASCILINE.registerMascot('ghost', {
-    get_class: () => HoveringGhostMascot,
+    get_class: () => ASCILINE.Physics.Ghost,
     args: ['ghost_coloranim.json', 80, 50, 15, 2.5]
 });
 
@@ -184,9 +193,11 @@ ASCILINE.spawn('ghost');
 
 ## 7. Best Practice: Animation FPS & Kinematic Velocity Sync
 
-To achieve organic, satisfying movement and avoid "ice-skating" (foot-sliding) visual artifacts:
-
-* **Synchronize Step Rate with `walkSpeed`:** If you increase the animation playback rate (`fps = 30`), proportionally scale your movement speed (`this.vx = 4.0`). 
+### Asset Compilation FPS (Data Shell) vs. Runtime Engine FPS
+* **Compilation FPS (Temporal Subsampling):** When exporting from GIF Studio or CLI tools (`gif2color.py`, `gif2text.py`), target FPS dictates frame decimation.
+  - Setting a **lower FPS (e.g. 5 FPS)** drops redundant frames to drastically reduce JSON file size while preserving motion duration (retro / stop-motion aesthetic).
+  - Setting a **higher FPS than original (e.g. 40 FPS on a 10-frame GIF)** causes the engine to cycle through all available frames in a fraction of a second, producing an ultra-fast (hyper-speed) playback loop.
+* **Synchronize Step Rate with `walkSpeed`:** If you increase the animation playback rate (`fps = 30`), proportionally scale your movement speed (`this.vx = 4.0`) to avoid "ice-skating" (foot-sliding) visual artifacts.
 * **Dynamic Speed Transitions:** When accelerating or sprinting (e.g., in `RunnerMascot`), dynamically scale the internal animation frame timer:
   ```javascript
   // Proportional animation speed matching current horizontal momentum

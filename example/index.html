@@ -134,6 +134,7 @@
                 <button id="btn-swimmer"  class="btn-swimmer"  onclick="ASCILINE.spawn('swimming_cat')">🏊 Swimming Cat</button>
                 <button id="btn-bouncer"  class="btn-bouncer"  onclick="ASCILINE.spawn('bouncy_cat')">🏀 Bouncy Cat</button>
                 <button id="btn-static"   class="btn-static"   onclick="ASCILINE.spawn('static_cat')">💤 Static Cat</button>
+                <button id="btn-dog"      class="btn-walker"   style="background:#2b6cb0;" onclick="spawnDog()">🐶 Dog Scene (5 FPS)</button>
                 <button id="btn-bomb"     class="btn-bouncer"  style="background:#e63946; color:#fff;" onclick="ASCILINE.spawn('bomb')">💣 Bomb Cat</button>
                 <button id="btn-spider"   class="btn-spider"   onclick="ASCILINE.spawn('spider')">🕷️ Spider</button>
                 <button id="btn-clear"    class="btn-clear"    onclick="ASCILINE.clear_all()">🗑️ Clear All</button>
@@ -165,6 +166,19 @@
         });
         // Configure local assets path for example page
         ASCILINE.baseAssetUrl = 'assets/';
+
+        function spawnDog() {
+            if (!ASCILINE.MASCOT_REGISTRY['dog_scene']) {
+                ASCILINE.registerMascot('dog_scene', {
+                    get_class: () => ASCILINE.Physics.Static,
+                    args: ['long_coloranim.json?v=' + Date.now(), 65, 31]
+                });
+            }
+            const dog = ASCILINE.spawn('dog_scene');
+            if (dog) {
+                dog.idleMode = 'play';
+            }
+        }
 
         function toggleAllDebug() {
             const isAnyActive = window.ASCILINE_CONFIG.debug && (

@@ -862,8 +862,14 @@ window.ASCILINE = {
     },
     getRegisteredMascots: function() {
         return Object.keys(MASCOT_REGISTRY);
-    }
+    },
+    MASCOT_REGISTRY: MASCOT_REGISTRY
 };
+
+// Global exports for developers and runtime access
+window.ASCILINE = ASCILINE;
+window.Mascot = Mascot;
+window.MASCOT_REGISTRY = MASCOT_REGISTRY;
 
 // Initialize core systems on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -1099,6 +1105,11 @@ class SpriteMascot extends Mascot {
             this.isColored = data.isColored || false;
             this.facing = (data.metadata && data.metadata.facing) || data.facing || 'right';
             this.idleMode = (data.metadata && data.metadata.idleMode) || data.idleMode || 'freeze'; // freeze, play, 0
+            if (data.fps || (data.metadata && data.metadata.fps)) {
+                this.fps = data.fps || data.metadata.fps;
+                this.frameInterval = 1000 / this.fps;
+                this.frameDelay = Math.max(1, Math.round(60 / this.fps));
+            }
             // Load optional metadata (customPoints hitbox, etc.)
             if (data.metadata) {
                 this.metadata = data.metadata;
@@ -1479,6 +1490,8 @@ class SpriteMascot extends Mascot {
     }
 }
 
+window.SpriteMascot = SpriteMascot;
+
 
 // -- lib/physics/pure/helpers/physics_text.js --
 class DomPhysicsObject extends Mascot {
@@ -1814,6 +1827,9 @@ class WalkingSpriteMascot extends SpriteMascot {
     }
 }
 
+(window.ASCILINE = window.ASCILINE || {}).Physics = window.ASCILINE.Physics || {};
+window.ASCILINE.Physics.Walker = WalkingSpriteMascot;
+
 
 // -- lib/physics/pure/motion/static_mascot.js --
 class StaticMascot extends SpriteMascot {
@@ -1859,6 +1875,10 @@ class StaticMascot extends SpriteMascot {
         this.wrapper.style.transform = `translate3d(${this.x}px, ${this.y}px, 0)`;
     }
 }
+
+(window.ASCILINE = window.ASCILINE || {}).Physics = window.ASCILINE.Physics || {};
+window.ASCILINE.Physics.Static = StaticMascot;
+
 
 
 // -- lib/physics/pure/motion/flyer.js --
@@ -2063,6 +2083,9 @@ class FlyingMascot extends SpriteMascot {
     }
 }
 
+(window.ASCILINE = window.ASCILINE || {}).Physics = window.ASCILINE.Physics || {};
+window.ASCILINE.Physics.Flyer = FlyingMascot;
+
 
 // -- lib/physics/pure/motion/runner_physics.js --
 class RunnerMascot extends SpriteMascot {
@@ -2135,6 +2158,9 @@ class RunnerMascot extends SpriteMascot {
         this.updateDOMPosition();
     }
 }
+
+(window.ASCILINE = window.ASCILINE || {}).Physics = window.ASCILINE.Physics || {};
+window.ASCILINE.Physics.Runner = RunnerMascot;
 
 
 // -- lib/physics/pure/motion/jumper_physics.js --
@@ -2305,6 +2331,9 @@ class JumperPhysics extends SpriteMascot {
     this.renderFrame(this.animFrame);
   }
 }
+
+(window.ASCILINE = window.ASCILINE || {}).Physics = window.ASCILINE.Physics || {};
+window.ASCILINE.Physics.Jumper = JumperPhysics;
 
 
 // -- lib/physics/pure/motion/swimmer.js --
@@ -2631,6 +2660,9 @@ class SwimmerMascot extends SpriteMascot {
     }
 }
 
+(window.ASCILINE = window.ASCILINE || {}).Physics = window.ASCILINE.Physics || {};
+window.ASCILINE.Physics.Swimmer = SwimmerMascot;
+
 
 // -- lib/physics/pure/motion/bouncer.js --
 class BouncerMascot extends SpriteMascot {
@@ -2731,6 +2763,9 @@ class BouncerMascot extends SpriteMascot {
         this.wrapper.style.transform = `translate3d(${this.x}px, ${this.y}px, 0) rotate(${this.rot}deg)${flip}`;
     }
 }
+
+(window.ASCILINE = window.ASCILINE || {}).Physics = window.ASCILINE.Physics || {};
+window.ASCILINE.Physics.Bouncer = BouncerMascot;
 
 
 // -- lib/physics/pure/motion/spider.js --
@@ -3084,6 +3119,9 @@ class SpiderMascot extends Mascot {
         }
     }
 }
+
+(window.ASCILINE = window.ASCILINE || {}).Physics = window.ASCILINE.Physics || {};
+window.ASCILINE.Physics.Spider = SpiderMascot;
 
 
 // -- lib/physics/pure/action/bomb_physics.js --
@@ -3758,6 +3796,9 @@ window.restoreShatteredDOM = function(targetSelector = null) {
     });
     if (typeof buildCollisionCache === 'function') buildCollisionCache();
 };
+
+(window.ASCILINE = window.ASCILINE || {}).Physics = window.ASCILINE.Physics || {};
+window.ASCILINE.Physics.Bomb = BombPhysics;
 
 
 })(typeof window !== "undefined" ? window : this, typeof document !== "undefined" ? document : {});
