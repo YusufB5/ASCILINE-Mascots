@@ -35,18 +35,40 @@ def frame_to_ascii(frame):
         
     return "\n".join(lines)
 
-def extract_frames(gif_path, new_width):
+def extract_frames(gif_path, new_width, target_fps=None):
     try:
         img = Image.open(gif_path)
     except Exception as e:
         print(f"Error opening image: {e}")
-        return None
+        return None, 15
 
-    raw_frames = []
-    
-    # Iterate over frames in the GIF
+    # Detect native FPS from frame durations
+    durations = []
     for frame_idx in range(img.n_frames):
         img.seek(frame_idx)
+        d = img.info.get('duration', 100)
+        durations.append(d if d > 0 else 100)
+        
+    avg_duration = sum(durations) / len(durations) if durations else 100
+    detected_fps = max(1, round(1000.0 / avg_duration))
+    export_fps = target_fps if target_fps else detected_fps
+    
+    print(f"Detected Native GIF FPS: ~{detected_fps} FPS | Export Target: {export_fps} FPS")
+
+    # Temporal subsampling calculation
+    frames_to_sample = []
+    if export_fps < detected_fps:
+        step = detected_fps / export_fps
+        cur = 0.0
+        while int(cur) < img.n_frames:
+            frames_to_sample.append(int(cur))
+            cur += step
+    else:
+        frames_to_sample = list(range(img.n_frames))
+
+    raw_frames = []
+    for idx in frames_to_sample:
+        img.seek(idx)
         frame = img.convert("RGBA")
         frame = resize_image(frame, new_width)
         raw_frames.append(frame)
@@ -69,6 +91,7 @@ def extract_frames(gif_path, new_width):
 
     frames_text = []
     for frame in raw_frames:
+        # Crop frame to global bounding box to remove empty padding
         if global_bbox:
             cropped = frame.crop(global_bbox)
         else:
@@ -77,40 +100,41 @@ def extract_frames(gif_path, new_width):
         text_frame = frame_to_ascii(cropped)
         frames_text.append(text_frame)
         
-    return frames_text
+    return frames_text, export_fps
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python gif2text.py <input.gif> [width=40] [--l|--r] [--idle=freeze|play|0]")
-        sys.exit(1)
-        
-    input_file = sys.argv[1]
-    
-    # Parse arguments
-    width = 40
-    facing = "right"
-    idle_mode = "freeze"
-    
-    for arg in sys.argv[2:]:
-        if arg == "--l":
-            facing = "left"
-        elif arg == "--r":
-            facing = "right"
-        elif arg.startswith("--idle="):
-            idle_mode = arg.split("=")[1]
-        elif arg.isdigit():
-            width = int(arg)
-    
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Convert GIF animations to ASCILINE monochrome ASCII text JSON files.")
+    parser.add_argument("input", help="Path to input GIF file")
+    parser.add_argument("pos_width", nargs="?", type=int, default=None, help="Character columns width (positional shortcut)")
+    parser.add_argument("--cols", "--width", "-w", dest="cols", type=int, default=None, help="Character columns width (default: 40)")
+    parser.add_argument("--fps", type=int, default=None, help="Target playback & sampling FPS (default: detect from GIF)")
+    parser.add_argument("--facing", choices=["left", "right"], default="right", help="Native sprite facing direction (default: right)")
+    parser.add_argument("--l", dest="facing_left", action="store_true", help="Shortcut for --facing left")
+    parser.add_argument("--r", dest="facing_right", action="store_true", help="Shortcut for --facing right")
+    parser.add_argument("--idle", dest="idle_mode", default="freeze", help="Idle animation mode: freeze, play, or frame number (default: freeze)")
+    parser.add_argument("-o", "--output", dest="output", default=None, help="Custom output JSON path")
+
+    args = parser.parse_args()
+
+    input_file = args.input
+    width = args.cols or args.pos_width or 40
+    facing = "left" if args.facing_left else ("right" if args.facing_right else args.facing)
+    idle_mode = args.idle_mode
+    target_fps = args.fps
+
     base_name = os.path.splitext(os.path.basename(input_file))[0]
-    output_file = f"{base_name}_textanim.json"
+    output_file = args.output or f"{base_name}_textanim.json"
     
-    print(f"Processing {input_file} (Width: {width}, Facing: {facing}, Idle: {idle_mode}) as pure ASCII text...")
-    frames = extract_frames(input_file, width)
+    print(f"Processing {input_file} (Width: {width}, Facing: {facing}, Idle: {idle_mode}) with ASCII TEXT...")
+    frames, final_fps = extract_frames(input_file, width, target_fps)
     
     if frames:
         data = {
             "name": base_name,
             "width": width,
+            "fps": final_fps,
             "frameCount": len(frames),
             "isColored": False,
             "facing": facing,
@@ -118,7 +142,7 @@ if __name__ == "__main__":
             "frames": frames
         }
         
-        # Preserve existing metadata (like custom hitboxes) if file exists
+        # Preserve existing metadata if file exists
         if os.path.exists(output_file):
             try:
                 with open(output_file, 'r', encoding='utf-8') as f:
@@ -128,8 +152,12 @@ if __name__ == "__main__":
             except Exception:
                 pass
                 
+        out_dir = os.path.dirname(output_file)
+        if out_dir and not os.path.exists(out_dir):
+            os.makedirs(out_dir, exist_ok=True)
+
         with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+            json.dump(data, f, indent=2)
             
-        print(f"Successfully created {output_file} with {len(frames)} text frames!")
-        print("Load this JSON in SpriteMascot for high-performance pure ASCII animation.")
+        print(f"Successfully created {output_file} with {len(frames)} ASCII frames at {final_fps} FPS!")
+        print("Load this JSON in SpriteMascot for pure retro ASCII rendering.")

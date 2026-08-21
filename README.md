@@ -49,6 +49,18 @@ In this standard model, DOM elements (`<h1>`, `<p>`, `<button>`) are static, two
 
 The engine turns standard text nodes and UI components into solid physical collision platforms using non-destructive browser APIs (`Range API`) without injecting wrapper tags or altering page SEO. Mascots patrol headings, jump across buttons, fall with real-time gravity, bounce off boundaries, and can be tossed via pointer momentum.
 
+### 🌟 Beyond Mascots: Entity & Scene Matrix
+
+ASCILINE is not limited to walking pets. It is a full living entity and retro pixel-art engine for the DOM:
+
+| Entity Type | Examples | Physics Style | Behavior |
+| :--- | :--- | :--- | :--- |
+| 🐾 **Autonomous Entities** | Walking pet, flying bird, jumping slime | Locomotion & Gravity | Patrols UI, climbs platforms, reacts to gravity |
+| ⚔️ **Interactive Objects** | Bouncing ball, coffee cup, throwable item | Momentum & Action | Draggable items with collision, impact & actions |
+| ☕ **Ambient Decors** | Looping fireplace, neon sign, desk lamp | Static (Zero-G) | Stationary animated object placed anywhere on page |
+| 🌳 **Living Scenes** | Dog-under-tree vista, retro landscape | Static / Ambient | Multi-frame animated vista without heavy video memory |
+| 🖼️ **Static Art & Logos** | Brand logo, retro badge, ASCII typography | Pure Sprite | Ultra-lightweight zero-CPU pixel art & typography |
+
 ---
 
 ## 2. Technical Architecture
@@ -186,6 +198,17 @@ For terminal lovers, CI/CD automated pipelines, and batch conversions:
   python tools/gif_inspector.py input.gif
   python tools/gif_trimmer.py input.gif --start 0 --end 10 -o trimmed.gif
   ```
+
+#### CLI Parameter & Flag Reference
+
+| Flag / Option | Short | Type | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `input` | — | String | *Required* | Path to the input `.gif` file |
+| `[width]` / `--cols` | `-w` | Integer | `40` | Output width in monospace character columns |
+| `--fps` | — | Integer | *Auto* | Target sampling & playback FPS (subsamples frames automatically) |
+| `-o` / `--output` | — | String | `[name]_anim.json` | Custom destination path for exported JSON |
+| `--facing` | `--l` / `--r` | Enum | `right` | Native character facing orientation (`left` or `right`) |
+| `--idle` | — | String | `freeze` | Idle playback behavior: `freeze` (pause on current), `play` (continuous loop), or frame index |
 
 ---
 
