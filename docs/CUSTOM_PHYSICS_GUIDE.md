@@ -179,3 +179,18 @@ ASCILINE.registerMascot('ghost', {
 // Spawn instantly anywhere on your site!
 ASCILINE.spawn('ghost');
 ```
+
+---
+
+## 7. Best Practice: Animation FPS & Kinematic Velocity Sync
+
+To achieve organic, satisfying movement and avoid "ice-skating" (foot-sliding) visual artifacts:
+
+* **Synchronize Step Rate with `walkSpeed`:** If you increase the animation playback rate (`fps = 30`), proportionally scale your movement speed (`this.vx = 4.0`). 
+* **Dynamic Speed Transitions:** When accelerating or sprinting (e.g., in `RunnerMascot`), dynamically scale the internal animation frame timer:
+  ```javascript
+  // Proportional animation speed matching current horizontal momentum
+  const currentSpeed = Math.abs(this.vx);
+  this.frameInterval = Math.max(30, 1000 / (this.fps * (currentSpeed / this.baseSpeed)));
+  ```
+* **State Decoupling:** Keep physics velocity updates (`this.x += this.vx * dt`) tied to the 60fps game loop, while letting visual frame switches advance on their independent FPS timer.

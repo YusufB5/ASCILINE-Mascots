@@ -589,7 +589,7 @@ const MASCOT_REGISTRY = {
         get_args: () => [resolveAssetUrl('secondcat_coloranim.json'), 80, 50, 15],
         args: [resolveAssetUrl('secondcat_coloranim.json'), 80, 50, 15]
     },
-    'sleeping_cat': {
+    'static_cat': {
         get_class: () => StaticMascot,
         get_args: () => [resolveAssetUrl('secondcat_coloranim.json'), 80, 50],
         args: [resolveAssetUrl('secondcat_coloranim.json'), 80, 50]
@@ -856,7 +856,9 @@ window.ASCILINE = {
         if (name && MASCOT_REGISTRY[name]) {
             delete MASCOT_REGISTRY[name];
             console.log(`[ASCILINE] Unregistered mascot: '${name}'`);
+            return true;
         }
+        return false;
     },
     getRegisteredMascots: function() {
         return Object.keys(MASCOT_REGISTRY);

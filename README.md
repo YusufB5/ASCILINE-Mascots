@@ -99,11 +99,15 @@ ASCILINE Mascot Engine is built on a modular 4-tier object-oriented architecture
 ### 1. Include the Engine (Single-File Bundle)
 
 ```html
-<!-- Include all core engines & physics behaviors in one line -->
+<!-- Recommended: All core engines, helpers, and physics behaviors in one line -->
 <script src="dist/asciline.bundle.min.js"></script>
 ```
 
-*(Alternatively, include individual modular scripts from `lib/core/` and `lib/physics/`).*
+> **Note on Modular Script Loading (Without Bundle):** If loading individual scripts from `lib/`, you must maintain strict hierarchical dependency order:
+> 1. `lib/core/mascot.js` *(Core Engine & Spatial DOM)*
+> 2. `lib/core/sprite.js` *(Sprite & Matrix Renderer)*
+> 3. `lib/physics/pure/helpers/physics_text.js` *(DOM Particle & Shatter Helpers)*
+> 4. `lib/physics/pure/motion/*` or `action/*` *(Individual Locomotion & Combat Behaviors)*
 
 ### 2. Configure and Spawn Mascots
 
@@ -120,6 +124,19 @@ window.ASCILINE_CONFIG = {
 ASCILINE.spawn('walker_cat');
 ASCILINE.spawn('flying_cat');
 ```
+
+### 3. Core Engine API Reference
+
+| Method / Property | Type / Return | Description |
+|---|---|---|
+| `ASCILINE.spawn(name)` | `Object` | Spawns a registered mascot by identifier. |
+| `ASCILINE.baseAssetUrl` | `String` | Global base URL for mascot JSON animations (e.g. `'assets/mascots/'` or CDN). |
+| `ASCILINE.resolveAssetUrl(path)` | `String` | Resolves relative JSON asset filenames against `baseAssetUrl`. |
+| `ASCILINE.registerMascot(name, config)` | `void` | Dynamically registers a custom mascot class and arguments. |
+| `ASCILINE.unregisterMascot(name)` | `Boolean` | Removes a mascot from runtime registry (`true` on success, `false` if not found). |
+| `ASCILINE.getRegisteredMascots()` | `Array<String>` | Returns a list of all currently registered mascot names. |
+| `ASCILINE.clear_all()` | `void` | Destroys and removes all active mascots from the screen. |
+| `ASCILINE.toggleDebug(layer)` | `void` | Toggles debug layers (`dragBoxes`, `hitboxes`, `platforms`, `fps`). |
 
 ---
 
