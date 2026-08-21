@@ -79,7 +79,7 @@ ASCILINE Mascot Engine is built on a modular 4-tier object-oriented architecture
 * **Dual Budget Shield:** Prevents performance degradation via configurable credit and count limits (`ASCILINE_MAX_CREDITS`, `ASCILINE_MAX_COUNT`).
 
 ### Layer 2: Sprite & Matrix Renderer (`lib/core/sprite.js`)
-* **Matrix Format Processing:** Parses 2D character arrays and HTML color matrix frames exported from GIF Studio.
+* **Matrix Format Processing:** Parses 2D character arrays and HTML color matrix frames generated via the in-browser GIF Studio or Python CLI conversion tools.
 * **Frame Compositing:** Pre-composites GIF frames to prevent ghosting artifacts across frame disposal states.
 * **Feature-Preserving Resampling:** Prioritizes micro-details (e.g., character eyes) during grid downscaling.
 * **HTML Frame Caching:** Converts matrix rows into efficient HTML `<span>` blocks with inline colors, caching processed HTML strings to minimize garbage collection pauses.
@@ -123,18 +123,22 @@ ASCILINE.spawn('flying_cat');
 
 ---
 
-## 4. Creating Custom Mascots
+## 4. Tooling & Custom Mascot Creation
 
-### Method A: Creating Sprite Mascots (via GIF Studio)
+ASCILINE provides both a browser-based visual studio and a suite of Python command-line conversion tools.
 
-1. Open `tools/gif_studio.html` in any browser.
-2. Drag and drop your animated GIF.
-3. Configure column resolution (e.g., `80` cols) and Idle frame settings.
-4. Select **Polygon Area** and click character outlines to define closed hitboxes.
-5. Click **Export Mascot JSON**.
-6. Register and spawn in your application:
+### Method A: Browser-Based GIF Studio (`tools/gif_studio.html`)
+
+An all-in-one browser tool for importing, optimizing, and designing hitboxes on animated GIFs:
+
+1. **Import:** Open `tools/gif_studio.html` and drag & drop any animated GIF.
+2. **Resolution & Sampling:** Adjust the **Columns (Resolution)** slider (e.g., `80` cols). The engine uses **Feature-Preserving Smart Resampling** to protect micro-details like character eyes and pupil contrast.
+3. **Disposal & Idle Modes:** Configure GIF frame disposal methods to eliminate ghosting artifacts and select idle behaviors (`Freeze Frame`, `Play Loop`).
+4. **Visual Hitbox Designer:** Click **Polygon Area** to define custom closed boundary points with real-time SVG preview.
+5. **Export:** Click **Export Mascot JSON** to download the optimized color-matrix JSON file.
 
 ```javascript
+// Register your exported mascot in your application
 ASCILINE.registerMascot('my_mascot', {
     get_class: () => WalkingSpriteMascot,
     args: ['my_mascot_coloranim.json', 80, 50, 15, 2]
@@ -143,9 +147,27 @@ ASCILINE.registerMascot('my_mascot', {
 ASCILINE.spawn('my_mascot');
 ```
 
-### Method B: Writing Custom Physics Behaviors
+### Method B: Python CLI Conversion Pipeline (`tools/`)
 
-To implement novel physics (e.g., floating ghosts, wall climbing, gravity inversion), read the developer guide:
+For headless automated pipelines, batch conversions, or server-side workflows:
+
+* **Color Matrix Converter (`tools/gif2color.py`):** Converts animated GIFs into colored HTML span matrix JSON files with aspect-ratio preservation.
+  ```bash
+  python tools/gif2color.py input.gif --cols 80 --fps 15 -o mascot_coloranim.json
+  ```
+* **Pure Text ASCII Converter (`tools/gif2mascot.py`):** Converts GIFs into pure monochrome ASCII text matrix JSON files.
+  ```bash
+  python tools/gif2mascot.py input.gif --cols 60 --fps 12 -o mascot_textanim.json
+  ```
+* **GIF Inspector & Trimmer (`tools/gif_inspector.py` & `tools/gif_trimmer.py`):** Analyze frame delays, dimensions, color palettes, and trim frame sequences.
+  ```bash
+  python tools/gif_inspector.py input.gif
+  python tools/gif_trimmer.py input.gif --start 0 --end 10 -o trimmed.gif
+  ```
+
+### Method C: Developing Custom Physics Behaviors
+
+To create entirely new kinematic behaviors (e.g., wall climbing, gravitational orbits, teleportation), read the developer guide:
 
 👉 [**Custom Physics Developer Guide (docs/CUSTOM_PHYSICS_GUIDE.md)**](docs/CUSTOM_PHYSICS_GUIDE.md)
 

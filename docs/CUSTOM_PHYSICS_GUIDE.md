@@ -117,6 +117,65 @@ if (this.facing === 'left') {
 
 ## 5. Complete Boilerplate: Creating a Hovering Ghost Mascot
 
-Here is a working example of a custom floating ghost physics behavior:
+```javascript
+/**
+ * @class HoveringGhostMascot
+ * @extends SpriteMascot
+ * @description Floats smoothly across DOM elements with gentle sinusoidal hovering.
+ */
+class HoveringGhostMascot extends SpriteMascot {
+    constructor(jsonUrlOrData, width = 80, height = 50, fps = 15, hoverSpeed = 2.0) {
+        super(jsonUrlOrData, width, height, fps);
+        
+        this.hoverSpeed = hoverSpeed;
+        this.hoverAngle = 0;
+        this.baseHoverY = this.y;
+        this.facing = 'right';
+    }
 
-``���م͍ɥ��(���(�������́!�ٕɥ������5�͍��(�����ѕ��́M�ɥѕ5�͍��(�����͍ɥ�ѥ�������́͵��ѡ�䁅�ɽ�́=4��������́ݥѠ����ѱ��ͥ��ͽ�������ٕɥ���(���)����́!�ٕɥ������5�͍�Ё��ѕ��́M�ɥѕ5�͍�Ё�(����������Սѽȡ�ͽ�Uɱ=��ф��ݥ�Ѡ�����������Ѐ�������̀��԰���ٕ�M������ȸ����(������������ȡ�ͽ�Uɱ=��ф��ݥ�Ѡ�������а���̤�(��������(��������ѡ�̹��ٕ�M�����􁡽ٕ�M�����(��������ѡ�̹��ٕ���������(��������ѡ�̹��͕!�ٕ�d��ѡ�̹��(��������ѡ�̹��������ɥ��М�(�����((����ѥ����Ѐ�Ĥ��(�����������M�������ͥ�́ݡ�����͕ȁ�́�Ʌ�����(������������ѡ�̹��Ʌ��������(������������ѡ�̹��͕!�ٕ�d��ѡ�̹��(������������ɕ��ɸ�(���������((�����������!�ɥ齹х�����ɽ����ٕ����(��������ѡ�̹����ѡ�̹����������ɥ��М���ѡ�̹��ٕ�M�����耵ѡ�̹��ٕ�M�����������((�����������M���ͽ���������ѥ���݅ٔ(��������ѡ�̹��ٕ�����������Ԁ�����(��������ѡ�̹��ѡ�̹��͕!�ٕ�d���5�Ѡ�ͥ��ѡ�̹��ٕ������������((�����������M�ɕ����������չ��(������������ѡ�̹��������(������������ѡ�̹�����(������������ѡ�̹��������ɥ��М�(������������ѡ�̹�Ʌ���ȹ��屔��Ʌ�͙�ɴ�􀝹�����(��������􁕱͔�����ѡ�̹����ѡ�̹ݥ�Ѡ���ݥ���ܹ�����]��Ѡ���(������������ѡ�̹���ݥ���ܹ�����]��Ѡ���ѡ�̹ݥ�Ѡ�(������������ѡ�̹�������􀝱��М�(������������ѡ�̹�Ʌ���ȹ��屔��Ʌ�͙�ɴ��͍���`��Ĥ��(���������((���������������Ё��ͥѥ���Ѽ�=4(��������ѡ�̹����ѕ=5A�ͥѥ�����(�����)�)���((���((���ظ�I����ѕɥ�������M��ݹ����e��ȁ��ѽ��A��ͥ��()I����ѕȁ��ȁ��܁����́��Ѽ�5M=Q}I%MQId��幅��������()�����م͍ɥ��)M%1%9�ɕ���ѕ�5�͍�Р�����М���(�������}�����耠�����!�ٕɥ������5�͍�а(�����ɝ��l������}����Ʌ�����ͽ�������������԰�ȸ�t)���((���M��ݸ����х�ѱ䁅��ݡ�ɔ������ȁͥє)M%1%9����ݸ������М��)���(
+    tick(dt = 1) {
+        // Skip physics while user is dragging
+        if (this.isDragging) {
+            this.baseHoverY = this.y;
+            return;
+        }
+
+        // Horizontal patrol movement
+        this.x += (this.facing === 'right' ? this.hoverSpeed : -this.hoverSpeed) * dt;
+
+        // Sinusoidal floating wave
+        this.hoverAngle += 0.05 * dt;
+        this.y = this.baseHoverY + Math.sin(this.hoverAngle) * 15;
+
+        // Screen edge bounce
+        if (this.x <= 0) {
+            this.x = 0;
+            this.facing = 'right';
+            this.wrapper.style.transform = 'none';
+        } else if (this.x + this.width >= window.innerWidth) {
+            this.x = window.innerWidth - this.width;
+            this.facing = 'left';
+            this.wrapper.style.transform = 'scaleX(-1)';
+        }
+
+        // Commit position to DOM
+        this.updateDOMPosition();
+    }
+}
+```
+
+---
+
+## 6. Registering and Spawning Your Custom Physics
+
+Register your new class into `MASCOT_REGISTRY` dynamically:
+
+```javascript
+ASCILINE.registerMascot('ghost', {
+    get_class: () => HoveringGhostMascot,
+    args: ['ghost_coloranim.json', 80, 50, 15, 2.5]
+});
+
+// Spawn instantly anywhere on your site!
+ASCILINE.spawn('ghost');
+```
