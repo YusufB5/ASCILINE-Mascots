@@ -160,6 +160,14 @@ class HoveringGhostMascot extends SpriteMascot {
 
         // Commit position to DOM
         this.updateDOMPosition();
+
+        // Advance and render animation frames
+        this.animTimer += dt;
+        if (this.animTimer >= this.frameDelay) {
+            this.animTimer = 0;
+            this.animFrame = (this.animFrame + 1) % this.frames.length;
+        }
+        this.renderFrame(this.animFrame);
     }
 }
 ```

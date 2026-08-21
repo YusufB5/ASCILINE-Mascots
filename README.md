@@ -174,7 +174,7 @@ The in-browser studio provides interactive visual editing with a focus on **Bloc
 
   ```javascript
   ASCILINE.registerMascot('my_mascot', {
-      get_class: () => WalkingSpriteMascot,
+      get_class: () => ASCILINE.Physics.Walker,
       args: ['my_mascot_coloranim.json', 80, 50, 15, 2]
   });
 
