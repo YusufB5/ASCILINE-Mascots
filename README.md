@@ -49,7 +49,7 @@ In this standard model, DOM elements (`<h1>`, `<p>`, `<button>`) are static, two
 
 The engine turns standard text nodes and UI components into solid physical collision platforms using non-destructive browser APIs (`Range API`) without injecting wrapper tags or altering page SEO. Mascots patrol headings, jump across buttons, fall with real-time gravity, bounce off boundaries, and can be tossed via pointer momentum.
 
-### 🌟 Beyond Mascots: Entity & Scene Matrix
+### Beyond Mascots: Entity & Scene Matrix
 
 ASCILINE is not limited to walking pets. It is a full living entity and retro pixel-art engine for the DOM:
 
@@ -214,13 +214,19 @@ For terminal lovers, CI/CD automated pipelines, and batch conversions:
 | `--facing` | `--l` / `--r` | Enum | `right` | Native character facing orientation (`left` or `right`) |
 | `--idle` | — | String | `freeze` | Idle playback behavior: `freeze` (pause on current), `play` (continuous loop), or frame index |
 
+> **Idle Animation Modes (`idleMode`):**
+> Controls what the character displays when stationary (not walking/moving). You can set this during JSON compilation (via GIF Studio or `--idle` flag) and dynamically override it at runtime in JavaScript (`mascot.idleMode = 'play'`):
+> * `'freeze'` *(Default)*: Freezes on the current frame when stopping (ideal for walk/run cycles).
+> * `'play'`: Plays the animation continuously even when stationary (ideal for ambient scenes, looping fireplaces, or breathing pets).
+> * `<frame_index>` (e.g. `0`): Automatically snaps to a specific resting frame whenever idle.
+
 ---
 
 ## 5. Custom Mascots & Physics: 2 Practical Scenarios
 
 ASCILINE Mascot Engine is designed to be fully modular and extensible. Whether you just want to load your own custom animated JSON mascot with existing physics, or build completely custom locomotion mechanics from scratch, use `ASCILINE.registerMascot()`:
 
-### 🧩 Scenario 1: Custom Mascot Asset (JSON) + Built-in Physics (`ASCILINE.Physics.*`)
+### Scenario 1: Custom Mascot Asset (JSON) + Built-in Physics (`ASCILINE.Physics.*`)
 *You generated a new animation JSON (e.g. `my_cat.json` via GIF Studio) and want to use one of ASCILINE's built-in physics modules (Walker, Flyer, Static, Jumper, etc.):*
 
 ```javascript
@@ -234,14 +240,14 @@ ASCILINE.registerMascot('my_walker_cat', {
 ASCILINE.spawn('my_walker_cat');
 ```
 
-> **💡 Available Physics Modules:** All physics classes in `lib/physics/` (e.g. `Walker`, `Flyer`, `Static`, `Jumper`, `Runner`, `Bouncer`, `Swimmer`, `Bomb`, `Sword`, `BlackHole`, `Hand`, `Pokeball`) are automatically available under `ASCILINE.Physics`. You can inspect all loaded physics modules in the browser console:
+> **Available Physics Modules:** All physics classes in `lib/physics/` (e.g. `Walker`, `Flyer`, `Static`, `Jumper`, `Runner`, `Bouncer`, `Swimmer`, `Bomb`, `Sword`, `BlackHole`, `Hand`, `Pokeball`) are automatically available under `ASCILINE.Physics`. You can inspect all loaded physics modules in the browser console:
 > ```javascript
 > console.log(ASCILINE.Physics);
 > ```
 
 ---
 
-### 🚀 Scenario 2: Full Custom (Custom JSON + Custom Physics Class)
+### Scenario 2: Full Custom (Custom JSON + Custom Physics Class)
 *You want to write brand-new unique locomotion or game physics behavior (e.g. a rocket that continuously flies upwards):*
 
 ```javascript
@@ -275,7 +281,7 @@ ASCILINE.registerMascot('space_rocket', {
 ASCILINE.spawn('space_rocket');
 ```
 
-👉 Read the in-depth developer guide: [**Custom Physics Developer Guide (docs/CUSTOM_PHYSICS_GUIDE.md)**](docs/CUSTOM_PHYSICS_GUIDE.md)
+Read the in-depth developer guide: [**Custom Physics Developer Guide (docs/CUSTOM_PHYSICS_GUIDE.md)**](docs/CUSTOM_PHYSICS_GUIDE.md)
 
 ---
 
