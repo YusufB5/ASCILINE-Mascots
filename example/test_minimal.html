@@ -1,0 +1,21 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Minimal Blank Page Test</title>
+    <!-- SADECE BUNDLE SCRIPT'I -->
+    <script src="../dist/asciline.bundle.min.js"></script>
+</head>
+<body>
+    <h1>Minimal Barebones Page</h1>
+    <p>This page has zero custom CSS and zero configuration. Just testing boundary floor & text platform collisions.</p>
+
+    <button onclick="ASCILINE.spawn('cat')">Spawn Cat</button>
+    <button onclick="ASCILINE.spawn('spider')">Spawn Spider</button>
+    <button onclick="ASCILINE.spawn('jumper')">Spawn Jumper</button>
+
+    <script>
+        ASCILINE.spawn('cat');
+    </script>
+</body>
+</html>

@@ -240,6 +240,11 @@ ASCILINE.registerMascot('my_walker_cat', {
 ASCILINE.spawn('my_walker_cat');
 ```
 
+> **Asset Loading Options:** The first argument in `args` can be:
+> 1. A **relative URL** (e.g. `'assets/cat.json'`), resolved automatically against `ASCILINE.baseAssetUrl`.
+> 2. A **full/absolute URL** (e.g. `'https://mycdn.com/cat.json'`).
+> 3. A **direct JavaScript Object / inline JSON** (e.g. `import catData from './cat.json'`) for zero-fetch, offline, and CORS-free bundling.
+
 > **Available Physics Modules:** All physics classes in `lib/physics/` (e.g. `Walker`, `Flyer`, `Static`, `Jumper`, `Runner`, `Bouncer`, `Swimmer`, `Bomb`, `Sword`, `BlackHole`, `Hand`, `Pokeball`) are automatically available under `ASCILINE.Physics`. You can inspect all loaded physics modules in the browser console:
 > ```javascript
 > console.log(ASCILINE.Physics);

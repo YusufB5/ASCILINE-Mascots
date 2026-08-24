@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tech Blog - Third-Party Website Test</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fafafa; color: #222; margin: 0; padding: 40px 20px; }
+        .container { max-width: 760px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+        h1 { font-size: 32px; color: #111; margin-bottom: 8px; }
+        h2 { font-size: 24px; color: #333; margin-top: 32px; }
+        p { font-size: 17px; line-height: 1.7; color: #444; margin-bottom: 20px; }
+        .btn { display: inline-block; background: #0066cc; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; border: none; cursor: pointer; }
+        .controls { margin-top: 40px; padding: 20px; background: #f0f4f8; border-radius: 8px; text-align: center; }
+    </style>
+
+    <!-- 1. SADECE BUNDLE SCRIPT'I EKLENİR (Sıfır harici CSS, sıfır ayar!) -->
+    <script src="../dist/asciline.bundle.min.js"></script>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Exploring the Future of Web Interactivity</h1>
+        <p>Modern web applications are increasingly moving towards immersive, living digital experiences. By integrating physical kinematics directly onto DOM text layers, static pages transform into interactive playgrounds.</p>
+
+        <h2>How Spatial Platforms Work</h2>
+        <p>Every heading, paragraph, and button acts as a solid physical surface. Mascots can patrol along paragraph lines, jump across headings, and react organically to viewport boundaries with real-time gravity and momentum.</p>
+
+        <button class="btn">Read More Articles</button>
+
+        <div class="controls">
+            <h3>🎮 Spawn Pets on this Blog</h3>
+            <button class="btn" onclick="ASCILINE.spawn('cat')">🐾 Spawn Walking Cat</button>
+            <button class="btn" style="background:#ff0055;" onclick="ASCILINE.spawn('spider')">🕷️ Spawn Spider</button>
+            <button class="btn" style="background:#00cc88;" onclick="ASCILINE.spawn('jumper')">🟢 Spawn Jumper Slime</button>
+            <button class="btn" style="background:#666;" onclick="ASCILINE.toggleDebug('platforms')">🛠️ Toggle Platforms</button>
+        </div>
+    </div>
+
+    <!-- SADECE SCRIPT ÇAĞRISI -->
+    <script>
+        ASCILINE.spawn('cat');
+    </script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Game Store - Third-Party E-Commerce Test</title>
+    <style>
+        body { font-family: "Segoe UI", Arial, sans-serif; background: #18191c; color: #eee; margin: 0; padding: 40px 20px; }
+        .header { text-align: center; margin-bottom: 40px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; max-width: 1000px; margin: 0 auto; }
+        .card { background: #24272c; padding: 24px; border-radius: 12px; border: 1px solid #363a45; text-align: center; }
+        .card h3 { margin-top: 0; color: #00ffcc; }
+        .price { font-size: 24px; font-weight: bold; color: #ffd700; margin: 16px 0; }
+        .buy-btn { background: #00ffcc; color: #111; font-weight: bold; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; width: 100%; }
+        .btn-group { text-align: center; margin-top: 40px; }
+        .spawn-btn { background: #ff0055; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 0 8px; }
+    </style>
+
+    <!-- SADECE BUNDLE DAHİL EDİLİR (Sıfır ayar!) -->
+    <script src="../dist/asciline.bundle.min.js"></script>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🕹️ Retro Hardware & Game Store</h1>
+        <p>Explore classic arcade consoles, cartridges, and vintage gaming accessories.</p>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h3>Arcade Cabinet</h3>
+            <p>Full-size classic arcade cabinet with authentic CRT visual filters.</p>
+            <div class="price">$1,499</div>
+            <button class="buy-btn">Add to Cart</button>
+        </div>
+        <div class="card">
+            <h3>Handheld 8-Bit</h3>
+            <p>Pocket-sized retro console with backlit monochrome LCD screen.</p>
+            <div class="price">$89</div>
+            <button class="buy-btn">Add to Cart</button>
+        </div>
+        <div class="card">
+            <h3>Cartridge Set</h3>
+            <p>Collection of 50 iconic retro platformers and side-scrollers.</p>
+            <div class="price">$120</div>
+            <button class="buy-btn">Add to Cart</button>
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <button class="spawn-btn" onclick="ASCILINE.spawn('bouncer')">⚽ Spawn Bouncer Ball</button>
+        <button class="spawn-btn" style="background:#00cc88;" onclick="ASCILINE.spawn('flyer')">🐉 Spawn Flying Dragon</button>
+        <button class="spawn-btn" style="background:#0099ff;" onclick="ASCILINE.spawn('cat')">🐾 Spawn Walking Cat</button>
+    </div>
+
+    <!-- OTOMATİK 1 ADET BOUNCER TOPU DOĞUR -->
+    <script>
+        ASCILINE.spawn('bouncer');
+    </script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep Scroll Long Page Test (4000px)</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #0f111a; color: #eee; margin: 0; padding: 0; }
+        .section { padding: 80px 40px; min-height: 700px; border-bottom: 2px dashed #2a2e3f; max-width: 800px; margin: 0 auto; }
+        h1 { color: #00ffcc; font-size: 36px; }
+        h2 { color: #ff0055; font-size: 28px; }
+        p { font-size: 18px; line-height: 1.8; color: #aaa; margin: 20px 0; }
+        .btn { background: #00ffcc; color: #111; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 10px 5px; }
+        .sticky-hud { position: fixed; top: 20px; right: 20px; background: rgba(0,0,0,0.8); border: 1px solid #00ffcc; padding: 15px; border-radius: 8px; z-index: 10000; }
+    </style>
+
+    <!-- SADECE BUNDLE SCRIPT'I -->
+    <script src="../dist/asciline.bundle.min.js"></script>
+</head>
+<body>
+
+    <div class="sticky-hud">
+        <div style="font-weight:bold; margin-bottom:8px; color:#00ffcc;">🎮 Spawn Anywhere</div>
+        <button class="btn" style="padding:6px 12px;" onclick="ASCILINE.spawn('cat')">🐾 Cat</button>
+        <button class="btn" style="padding:6px 12px; background:#ff0055; color:#fff;" onclick="ASCILINE.spawn('spider')">🕷️ Spider</button>
+        <button class="btn" style="padding:6px 12px; background:#ffd700; color:#111;" onclick="ASCILINE.spawn('bouncer')">⚽ Bouncer</button>
+    </div>
+
+    <div class="section">
+        <h1>Section 1: Hero Section (0px Scroll)</h1>
+        <p>This is the very top of the 4000px page. When you spawn here, mascots should drop from viewport top and walk on this heading and paragraph.</p>
+        <p>Try scrolling down to Section 2, Section 3, or Section 4 and spawning new mascots while scrolled deep into the page.</p>
+    </div>
+
+    <div class="section">
+        <h2>Section 2: Mid-Page Content (1000px Scroll)</h2>
+        <p>You have scrolled 1000px down. When you click the sticky HUD spawn button here, the mascot must spawn in your CURRENT VIEWPORT, not 1000px above invisible at the top!</p>
+        <button class="btn">Middle Action Button</button>
+    </div>
+
+    <div class="section">
+        <h2>Section 3: Deep Architecture (2000px Scroll)</h2>
+        <p>Testing Range API platform extraction at 2000px scroll depth. The mascot should smoothly patrol these paragraphs without falling through into the void.</p>
+        <p>Check if gravity and collisions remain rock-solid across scroll offsets.</p>
+    </div>
+
+    <div class="section">
+        <h2>Section 4: The Bottom Abyss (3000px+ Scroll)</h2>
+        <p>This is the bottom of the page. Mascots should never fall below document.body.scrollHeight or infinitely fall into empty space.</p>
+        <button class="btn" style="background:#ff0055; color:white;">Final Footer Button</button>
+    </div>
+
+    <!-- OTOMATİK 1 ADET KEDİ DOĞUR -->
+    <script>
+        ASCILINE.spawn('cat');
+    </script>
+</body>
+</html>

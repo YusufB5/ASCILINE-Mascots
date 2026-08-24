@@ -14,6 +14,67 @@
  * Supports physics, collisions, drag & throw, and custom behaviors.
  */
 
+// ── AUTOMATIC CORE CSS INJECTION (Zero-Setup Plug & Play) ──
+(function injectDefaultStyles() {
+    if (typeof document === 'undefined' || document.getElementById('asciline-core-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'asciline-core-styles';
+    style.textContent = `
+        .ascii-mascot-wrapper,
+        .ascii-mascot-wrapper * {
+            box-sizing: border-box !important;
+        }
+        .ascii-mascot-wrapper {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            user-select: none !important;
+            -webkit-user-select: none !important;
+            pointer-events: auto !important;
+            z-index: 99999 !important;
+            cursor: grab !important;
+            will-change: transform !important;
+            background: transparent !important;
+            border: none !important;
+            outline: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        .ascii-mascot-wrapper:active {
+            cursor: grabbing !important;
+        }
+        .ascii-mascot-wrapper pre,
+        .ascii-mascot-wrapper .ascii-mascot-pre,
+        .ascii-mascot-wrapper .colored-mascot-pre,
+        .ascii-mascot-wrapper pre span {
+            font-family: 'Courier New', Courier, monospace !important;
+            font-size: 8px !important;
+            line-height: 8px !important;
+            letter-spacing: 0px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            white-space: pre !important;
+            border: none !important;
+            background: transparent;
+        }
+        .ascii-mascot-wrapper .ascii-mascot-pre,
+        .ascii-mascot-wrapper .colored-mascot-pre {
+            display: inline-block !important;
+            width: max-content !important;
+            pointer-events: none !important;
+        }
+        .ascii-mascot-wrapper .colored-mascot-pre span {
+            display: inline !important;
+            letter-spacing: 0px !important;
+        }
+    `;
+    if (document.head) {
+        document.head.appendChild(style);
+    } else {
+        document.addEventListener('DOMContentLoaded', () => document.head.appendChild(style));
+    }
+})();
+
 // ── GLOBAL CONFIGURATION ──
 // Developers using this library can overwrite these selectors for their own websites
 window.ASCILINE_CONFIG = window.ASCILINE_CONFIG || {
@@ -116,8 +177,9 @@ class Mascot {
         this.width = width;
         this.height = height;
         
-        this.x = Math.random() * (window.innerWidth - this.width - 50) + 25;
-        this.y = 100 + Math.random() * 50;
+        // Default spawn at current viewport center-top (smoothly falls into view)
+        this.x = (window.innerWidth / 2) - (this.width / 2) + (Math.random() - 0.5) * 100;
+        this.y = (window.scrollY || 0) + 60 + Math.random() * 40;
         this.vx = 0;
         this.vy = 0;
         
@@ -397,17 +459,21 @@ class Mascot {
     }
     
     findPlatformCollision() {
+        if (cachedStaticPlatforms.length === 0) {
+            buildCollisionCache();
+        }
+
         const mascotBottom = this.y + this.height;
         const mascotCenterX = this.x + this.width / 2;
         const docHeight = Math.max(document.body.scrollHeight, window.innerHeight);
         let highestPlatformTop = docHeight;
         let highestPlatform = null;
 
-        // Viewport cull: only check platforms within ±200px of the mascot's vertical position
-        const cullMin = this.y - 200;
-        const cullMax = mascotBottom + 20;
+        // Viewport cull: check platforms around mascot
+        const cullMin = this.y - 300;
+        const cullMax = mascotBottom + Math.max(50, Math.abs(this.vy || 0) * 2);
         
-        // 1. Static Memory Scan (viewport-culled for mobile perf)
+        // 1. Static Memory Scan
         for (const plat of cachedStaticPlatforms) {
             if (!plat.node || !plat.node.isConnected) continue;
             if (plat.node.classList.contains('shattered-platform') || plat.node.closest('.shattered-platform')) continue;
@@ -425,8 +491,12 @@ class Mascot {
 
             if (plat.top < cullMin || plat.top > cullMax) continue;
 
-            if (mascotCenterX >= plat.left && mascotCenterX <= plat.right) {
-                if (mascotBottom >= plat.top && this.y + this.height - this.vy <= plat.top + 8 && this.vy >= 0) {
+            if (mascotCenterX >= plat.left - 5 && mascotCenterX <= plat.right + 5) {
+                // Raycast collision: check if mascot crossed the platform surface in this frame
+                const prevBottom = mascotBottom - (this.vy || 0);
+                const isFalling = (this.vy || 0) >= 0;
+                
+                if (isFalling && (mascotBottom >= plat.top - 2) && (prevBottom <= plat.top + Math.max(12, this.vy + 4))) {
                     if (plat.top < highestPlatformTop) {
                         highestPlatformTop = plat.top;
                         highestPlatform = plat.node;
@@ -531,7 +601,18 @@ class Mascot {
 
 
 // Global Asset Base URL configuration
-const DEFAULT_ASSET_BASE = '/assets/mascots/';
+function getDefaultAssetBase() {
+    if (typeof window !== 'undefined' && window.location) {
+        const isLocal = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1' || 
+                        window.location.protocol === 'file:';
+        if (isLocal) {
+            return 'assets/';
+        }
+    }
+    // Default fallback to public GitHub CDN for zero-setup third-party websites
+    return 'https://cdn.jsdelivr.net/gh/YusufB5/ASCILINE-Mascots@main/example/assets/';
+}
 
 function resolveAssetUrl(pathOrFilename) {
     if (!pathOrFilename || typeof pathOrFilename !== 'string') return pathOrFilename;
@@ -541,7 +622,7 @@ function resolveAssetUrl(pathOrFilename) {
     }
     const base = (typeof window !== 'undefined' && window.ASCILINE && window.ASCILINE.baseAssetUrl) 
         ? window.ASCILINE.baseAssetUrl 
-        : DEFAULT_ASSET_BASE;
+        : getDefaultAssetBase();
     
     // Normalize base prefix to check if already prefixed
     const cleanBase = base.replace(/^\/+|\/+$/g, '');
@@ -744,7 +825,36 @@ window.ASCILINE = {
     },
     
     spawn: function(mascot_name, custom_x = null, custom_y = null, silent = false) {
-        const config = MASCOT_REGISTRY[mascot_name];
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                this.spawn(mascot_name, custom_x, custom_y, silent);
+            });
+            return null;
+        }
+
+        if (cachedStaticPlatforms.length === 0) {
+            buildCollisionCache();
+        }
+
+        const MASCOT_ALIASES = {
+            'cat': 'walker_cat',
+            'walker': 'walker_cat',
+            'flyer': 'flying_cat',
+            'flying': 'flying_cat',
+            'dragon': 'flying_cat',
+            'runner': 'speedy_cat',
+            'speedy': 'speedy_cat',
+            'jumper': 'jumping_cat',
+            'slime': 'jumping_cat',
+            'swimmer': 'swimming_cat',
+            'dolphin': 'swimming_cat',
+            'bouncer': 'bouncy_cat',
+            'ball': 'bouncy_cat',
+            'static': 'static_cat'
+        };
+
+        const resolvedKey = MASCOT_REGISTRY[mascot_name] ? mascot_name : (MASCOT_ALIASES[mascot_name] || mascot_name);
+        const config = MASCOT_REGISTRY[resolvedKey];
         
         if (!config) {
             console.error(`[ASCILINE] Error: Unknown mascot name '${mascot_name}'`);
@@ -753,7 +863,7 @@ window.ASCILINE = {
 
         // Dynamically compute args first to determine actual variant cost (e.g. secondcat)
         const args = config.get_args ? config.get_args() : config.args;
-        let cost = window.ASCILINE_CREDIT_TABLE[mascot_name] || 1;
+        let cost = window.ASCILINE_CREDIT_TABLE[resolvedKey] || window.ASCILINE_CREDIT_TABLE[mascot_name] || 1;
         if (mascot_name === 'cat' && args[0] && args[0].includes('secondcat')) {
             cost = window.ASCILINE_CREDIT_TABLE['secondcat'] || 2;
         }
@@ -845,7 +955,7 @@ window.ASCILINE = {
     },
     
     // Asset and Registry Management
-    baseAssetUrl: DEFAULT_ASSET_BASE,
+    baseAssetUrl: getDefaultAssetBase(),
     resolveAssetUrl: resolveAssetUrl,
     registerMascot: function(name, config) {
         if (!name || !config) return;
@@ -885,6 +995,24 @@ window.addEventListener('DOMContentLoaded', () => {
     
     // Start the physics engine loop
     requestAnimationFrame(physicsLoop);
+    
+    // Dynamic DOM Observer (Auto-adapts to React, SPA, modals, dynamic accordions)
+    if (typeof MutationObserver !== 'undefined' && document.body) {
+        let _mutationDebounce = null;
+        const observer = new MutationObserver((mutations) => {
+            const hasExternalChange = mutations.some(m => {
+                const target = m.target;
+                return target && target.nodeType === 1 && (!target.closest || !target.closest('.ascii-mascot-wrapper'));
+            });
+            if (hasExternalChange) {
+                clearTimeout(_mutationDebounce);
+                _mutationDebounce = setTimeout(() => {
+                    if (typeof buildCollisionCache === 'function') buildCollisionCache();
+                }, 350);
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
     
     // Smart Selection: Allow text selection during Ctrl+A or while holding Alt key
     const styleEl = document.createElement('style');
@@ -1032,11 +1160,29 @@ class SpriteMascot extends Mascot {
         wrapper.className = 'ascii-mascot-wrapper notranslate';
         wrapper.setAttribute('translate', 'no');
         wrapper.id = wrapperId;
+        wrapper.style.position = 'absolute';
+        wrapper.style.top = '0px';
+        wrapper.style.left = '0px';
+        wrapper.style.cursor = 'grab';
+        wrapper.style.zIndex = '99999';
+        wrapper.style.userSelect = 'none';
+        wrapper.style.willChange = 'transform';
         
         const pre = document.createElement('pre');
         pre.className = 'ascii-mascot-pre notranslate';
         pre.setAttribute('translate', 'no');
         pre.id = preId;
+        pre.style.margin = '0px';
+        pre.style.padding = '0px';
+        pre.style.fontFamily = 'monospace';
+        pre.style.fontSize = '8px';
+        pre.style.lineHeight = '8px';
+        pre.style.letterSpacing = '0px';
+        pre.style.whiteSpace = 'pre';
+        pre.style.display = 'inline-block';
+        pre.style.width = 'max-content';
+        pre.style.pointerEvents = 'none';
+        
         // Start invisible via CSS class only if not already cached
         SpriteMascot._jsonCache = SpriteMascot._jsonCache || {};
         if (!SpriteMascot._jsonCache[jsonUrl]) {
@@ -1110,10 +1256,20 @@ class SpriteMascot extends Mascot {
                 this.frameInterval = 1000 / this.fps;
                 this.frameDelay = Math.max(1, Math.round(60 / this.fps));
             }
-            // Load optional metadata (customPoints hitbox, etc.)
+            // Load optional metadata (customPoints hitbox, fontSize, etc.)
             if (data.metadata) {
                 this.metadata = data.metadata;
                 this.customPoints = data.metadata.customPoints || [];
+                
+                // Dynamic font size & line-height scaling from JSON metadata
+                if (data.metadata.fontSize) {
+                    const fs = typeof data.metadata.fontSize === 'number' ? `${data.metadata.fontSize}px` : data.metadata.fontSize;
+                    const lh = data.metadata.lineHeight ? (typeof data.metadata.lineHeight === 'number' ? `${data.metadata.lineHeight}px` : data.metadata.lineHeight) : fs;
+                    if (this.pre) {
+                        this.pre.style.fontSize = fs;
+                        this.pre.style.lineHeight = lh;
+                    }
+                }
             }
             if (this.isColored) {
                 this.pre.classList.add('colored-mascot-pre');
@@ -1148,17 +1304,31 @@ class SpriteMascot extends Mascot {
             }
 
         } catch (error) {
-            console.error("Failed to load mascot animation:", error);
-            // Completely destroy and remove from memory if JSON fails to load
-            if (typeof this.destroy === 'function') {
-                this.destroy();
-            } else if (this.wrapper && this.wrapper.parentNode) {
-                this.wrapper.parentNode.removeChild(this.wrapper);
+            console.warn(`[ASCILINE] Could not load JSON asset from '${url}'. Activating zero-network ASCII fallback.`);
+            
+            // Standalone Fallback ASCII frames (guarantees physics works even offline / CORS failed)
+            this.frames = [
+                ` /\\_/\\ \n( o.o )\n > ^ < `,
+                ` /\\_/\\ \n( -.- )\n > ^ < `
+            ];
+            this.isColored = false;
+            this.isLoaded = true;
+            this.wrapper.classList.remove('mascot-loading');
+            
+            if (this.pre) {
+                this.pre.style.fontSize = '10px';
+                this.pre.style.lineHeight = '9px';
+                this.pre.style.color = '#00ffcc';
+                this.pre.style.textShadow = '0 0 1px #000';
             }
-            if (typeof mascots !== 'undefined') {
-                const idx = mascots.indexOf(this);
-                if (idx > -1) mascots.splice(idx, 1);
-            }
+            this.renderFrame(0);
+            
+            const w = this.pre.offsetWidth || 50;
+            const h = this.pre.offsetHeight || 30;
+            this.width = w;
+            this.height = h;
+            this.wrapper.style.width = `${w}px`;
+            this.wrapper.style.height = `${h}px`;
         }
     }
 
@@ -1668,10 +1838,12 @@ class WalkingSpriteMascot extends SpriteMascot {
         }
         
         let landed = false;
-        let floorY = window.scrollY + window.innerHeight - this.height;
-        const collision = this.findPlatformCollision();
+        const viewportFloor = window.scrollY + window.innerHeight - this.height;
+        const pageFloor = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight) - this.height;
+        let floorY = Math.min(viewportFloor, pageFloor);
         
-        if (collision.platform) {
+        const collision = this.findPlatformCollision();
+        if (collision && collision.platform) {
             floorY = collision.top - this.height;
         }
         
@@ -2795,17 +2967,26 @@ class SpiderMascot extends Mascot {
         wrapper.className = 'ascii-mascot-wrapper notranslate';
         wrapper.setAttribute('translate', 'no');
         wrapper.id = wrapperId;
+        wrapper.style.position = 'absolute';
+        wrapper.style.top = '0px';
+        wrapper.style.left = '0px';
+        wrapper.style.cursor = 'grab';
+        wrapper.style.zIndex = '99999';
+        wrapper.style.userSelect = 'none';
+        wrapper.style.willChange = 'transform';
         
         const web = document.createElement('pre');
         web.className = 'spider-web-line notranslate';
         web.setAttribute('translate', 'no');
         web.id = webId;
         web.style.position = 'absolute';
-        web.style.bottom = '100%';
+        web.style.bottom = 'calc(100% - 4px)';
         web.style.left = '50%';
         web.style.transform = 'translateX(-50%)';
         web.style.margin = '0';
-        web.style.color = '#fff';
+        web.style.color = '#7a889b';
+        web.style.textShadow = '0 0 1px rgba(0,0,0,0.4), 0 0 2px rgba(255,255,255,0.6)';
+        web.style.fontWeight = 'bold';
         web.style.lineHeight = '9px';
         web.style.fontSize = '12px';
         web.style.display = 'none';
@@ -2814,6 +2995,15 @@ class SpiderMascot extends Mascot {
         pre.className = 'ascii-mascot-pre notranslate';
         pre.setAttribute('translate', 'no');
         pre.id = preId;
+        pre.style.margin = '0px';
+        pre.style.padding = '0px';
+        pre.style.fontFamily = 'monospace';
+        pre.style.fontSize = '12px';
+        pre.style.lineHeight = '9px';
+        pre.style.whiteSpace = 'pre';
+        pre.style.display = 'inline-block';
+        pre.style.width = 'max-content';
+        pre.style.pointerEvents = 'none';
         
         wrapper.appendChild(web);
         wrapper.appendChild(pre);
@@ -2823,7 +3013,7 @@ class SpiderMascot extends Mascot {
         
         this.walkDir = 1;
         this.webDiv = document.getElementById(webId);
-        this.targetCeilingY = 0;
+        this.targetCeilingY = window.scrollY || 0;
         
         this.ANIM_IDLE = [
             ` //(oo)\\\\ \n ||    || \n \\\\    // `
@@ -2855,9 +3045,9 @@ class SpiderMascot extends Mascot {
     
     updateWebVisual() {
         if (this.currentState === 'SHOOT_WEB' || this.currentState === 'PULL_WEB' || this.currentState === 'PAUSE_WEB') {
-            const distance = this.y - this.targetCeilingY;
+            const distance = Math.max(0, this.y - this.targetCeilingY);
             if (distance > 0) {
-                const charsNeeded = Math.floor(distance / 9); // 9px line height
+                const charsNeeded = Math.ceil(distance / 9) + 1; // Ceil + 1 to ensure zero gap with body
                 this.webDiv.textContent = '|\n'.repeat(charsNeeded);
                 this.webDiv.style.height = `${distance}px`;
                 this.webDiv.style.display = 'block';
